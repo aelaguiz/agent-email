@@ -89,7 +89,7 @@ Silence reads as handled, so silence has to mean that. The agent's own answer is
 - delivery failed three times;
 - a machine has been off with his reply for 30 minutes;
 - mail claiming to be him failed the check;
-- a login stopped working (`agent-email doctor`).
+- a login stopped working: the home machine checks every account once an hour.
 
 ## Logins
 

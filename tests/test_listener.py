@@ -250,3 +250,54 @@ def test_a_label_that_failed_is_added_on_the_next_pass(home):
     l.relabel()
     assert ("sent1", listener.FROM_LABEL + "m5") in l.fake.added
     assert not records.load_sent("chief", "sent1")["label_pending"]
+
+
+class LoginAccount:
+    def __init__(self, error=None):
+        self.error = error
+
+    def profile(self):
+        if self.error:
+            raise listener.GmailError(self.error)
+        return {"emailAddress": "x@example.com"}
+
+
+def logins(home, monkeypatch, **states):
+    l = make(home)
+    sent = []
+    monkeypatch.setattr(listener, "new_email", lambda *a: sent.append(a))
+    l.accounts = {name: LoginAccount(error) for name, error in states.items()}
+    return l, sent
+
+
+def test_a_revoked_login_is_reported_once_from_a_mailbox_that_still_works(home, monkeypatch):
+    l, sent = logins(home, monkeypatch, chief="400 invalid_grant", fc=None, side=None, **{"growth-lead": None})
+    l.check_logins()
+    l.next_login_check = 0
+    l.check_logins()
+    assert len(sent) == 1 and sent[0][0] != "chief" and "chief" in sent[0][3]
+
+
+def test_a_network_failure_is_not_a_dead_login(home, monkeypatch):
+    l, sent = logins(home, monkeypatch, chief="connection refused", fc=None, side=None, **{"growth-lead": None})
+    l.check_logins()
+    assert not sent
+
+
+def test_a_login_fixed_and_broken_again_is_reported_again(home, monkeypatch):
+    l, sent = logins(home, monkeypatch, chief="400 invalid_grant", fc=None, side=None, **{"growth-lead": None})
+    l.check_logins()
+    l.accounts["chief"].error = None
+    l.next_login_check = 0
+    l.check_logins()
+    l.accounts["chief"].error = "400 invalid_grant"
+    l.next_login_check = 0
+    l.check_logins()
+    assert len(sent) == 2
+
+
+def test_only_the_home_machine_checks_logins(home, monkeypatch):
+    l, sent = logins(home, monkeypatch, chief="400 invalid_grant")
+    l.home = False
+    l.check_logins()
+    assert not sent

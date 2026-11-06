@@ -5,12 +5,15 @@ Each machine runs one of these and Gmail is all they share. A reply belongs to t
 email it answers, so every listener reaches the same answer and only one acts. Whatever this machine owns goes on disk
 before anything else happens, so a restart picks up where it stopped.
 """
+import json
 import logging
 import logging.handlers
+import os
 import queue
+import subprocess
 import threading
-from email.utils import getaddresses
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 
 from . import config, deliver, identity, records, sender
 from .google import Account, GmailError
@@ -20,6 +23,7 @@ log = logging.getLogger("agent-email")
 FROM_LABEL = "agent-email/from-"
 RECEIVED, READ, HELD, NOTED = "agent-email/received", "agent-email/read", "agent-email/held", "agent-email/noted"
 FAILURE_NOTE_AFTER = 3
+LOGIN_CHECK_SECONDS = 3600
 
 
 def search_query(mailbox, s):
@@ -70,11 +74,14 @@ def notice_for(item, s):
     return f'[Email] {owner} replied to "{subject}". Read it: agent-email read {ref}'
 
 
+def new_email(account, to, subject, text):
+    env = {**os.environ, "AGENT_EMAIL_SYSTEM": "1"}
+    subprocess.run([os.path.expanduser(f"~/.local/bin/gws-{account}"), "gmail", "+send", "--to", to, "--subject", subject,
+                    "--body", text], env=env, capture_output=True, timeout=60, check=True)
+
+
 def system_email(item, text):
     """A note to the owner in the thread, from the same mailbox. Run through gws so it looks like any other email."""
-    import os
-    import subprocess
-    s = config.settings()
     env = {**os.environ, "AGENT_EMAIL_SYSTEM": "1"}
     subprocess.run([os.path.expanduser(f"~/.local/bin/gws-{item['account']}"), "gmail", "+reply", "--message-id", item["gmail_id"],
                     "--to", item["reply_to"], "--body", text], env=env, capture_output=True, timeout=60, check=True)
@@ -90,6 +97,7 @@ class Listener:
         self.settled = set()         # emails this process has nothing more to do with
         self.queue = queue.Queue()
         self.queued = set()
+        self.next_login_check = 0
         self.stop = threading.Event()
 
     def account(self, name):
@@ -114,6 +122,7 @@ class Listener:
         self.relabel()
         self.queue_pending()
         self.warnings()
+        self.check_logins()
 
     def sweep_mailbox(self, box):
         account = self.account(box["account"])
@@ -255,7 +264,6 @@ class Listener:
             self.after_failure(ref, result.reason)
 
     def after_failure(self, ref, reason):
-        from datetime import timedelta
         item = records.load_inbound(ref)
         attempts = item["attempts"] + 1
         minutes = 5 if attempts < FAILURE_NOTE_AFTER else 60
@@ -289,6 +297,34 @@ class Listener:
                 continue
             records.update_inbound(item["ref"], warned=True)
             self.note(item, text)
+
+    def check_logins(self):
+        """Once an hour on the home machine. A grant Google has revoked stops every agent using that account, and
+        nothing else would say so. The owner hears once per login, and again only if it breaks again after a fix."""
+        if not self.home or time.monotonic() < self.next_login_check:
+            return
+        self.next_login_check = time.monotonic() + LOGIN_CHECK_SECONDS
+        dead = []
+        for name in config.accounts(self.s):
+            try:
+                self.account(name).profile()
+            except GmailError as e:
+                if "invalid_grant" in str(e):
+                    dead.append(name)
+        path = config.ROOT / "dead-logins.json"
+        told = set(json.loads(path.read_text())) if path.exists() else set()
+        fresh = [n for n in dead if n not in told]
+        records.write(path, dead)
+        if fresh:
+            alive = [b["account"] for b in self.boxes if b["account"] not in dead]
+            log.warning("logins stopped working: %s", ", ".join(fresh))
+            try:
+                new_email(alive[0], self.s["owner_addresses"][0], "A Google login stopped working",
+                          f"These Google logins stopped working, so agents can't use them: {', '.join(fresh)}. "
+                          f"A password change usually does this. The fix is a new grant: see 'A new login' in the "
+                          f"agent-email README.")
+            except Exception:
+                log.exception("couldn't send the login note")
 
     def relabel(self):
         """Machine labels that failed when the email was sent."""
