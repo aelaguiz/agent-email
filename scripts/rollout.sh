@@ -21,8 +21,8 @@ for pair in "$@"; do
 
   # Logins and config.
   ssh $ssh_opts "$route" "mkdir -p ~/$remote_grants ~/.agent-email ~/.local/bin ~/.local/share/agent-email && chmod 700 ~/$remote_grants ~/.agent-email" || { fail=1; continue; }
-  rsync -a --chmod=F600 -e "ssh $ssh_opts" --include='gws-*-credentials.json' --exclude='*' "$grants/" "$route:$remote_grants/" || { echo "grants failed"; fail=1; continue; }
-  rsync -a --chmod=F600 -e "ssh $ssh_opts" "$HOME/.agent-email/config.json" "$route:.agent-email/config.json" || { fail=1; continue; }
+  rsync -a -e "ssh $ssh_opts" --include='gws-*-credentials.json' --exclude='*' "$grants/" "$route:$remote_grants/" || { echo "grants failed"; fail=1; continue; }
+  rsync -a -e "ssh $ssh_opts" "$HOME/.agent-email/config.json" "$route:.agent-email/config.json" || { fail=1; continue; }
 
   # The Google CLI, unless this machine already has the right version. An older one lacks what the commands use.
   gws_bin=$(ssh $ssh_opts "$route" "$tools"'; python3 - <<PY 2>/dev/null

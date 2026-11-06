@@ -78,9 +78,11 @@ def mailboxes(s=None):
                     "own_mailbox": bool(box.get("own_mailbox")), "folder": os.path.expanduser(box["folder"]),
                     "agent_id": box.get("agent_id") or account})
     for account in config.accounts(s):
-        if account not in s["owner_accounts"] and account not in s["mailboxes"] and account in folders:
+        if account not in s["owner_accounts"] and account not in s["mailboxes"]:
+            # Machines without the agent's repository still watch its mailbox for mail their sessions sent. Only the
+            # home machine ever starts a session from this folder.
             out.append({"account": account, "address": address_of(account, s), "own_mailbox": False,
-                        "folder": folders[account], "agent_id": account})
+                        "folder": folders.get(account) or os.path.expanduser("~"), "agent_id": account})
     return out
 
 
