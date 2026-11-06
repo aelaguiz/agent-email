@@ -16,7 +16,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "approvals", git = "https://github.com/aelaguiz/agent-approvals?rev=33616adb5d6e4c41e37e71fe00d5d82a3e908701" }]
+requires-dist = [{ name = "approvals", git = "https://github.com/aelaguiz/agent-approvals?rev=07ca7f658f63476a0f8dcab50d5b41d197e79c6e" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8" }]
@@ -24,7 +24,7 @@ dev = [{ name = "pytest", specifier = ">=8" }]
 [[package]]
 name = "approvals"
 version = "0.1.0"
-source = { git = "https://github.com/aelaguiz/agent-approvals?rev=33616adb5d6e4c41e37e71fe00d5d82a3e908701#33616adb5d6e4c41e37e71fe00d5d82a3e908701" }
+source = { git = "https://github.com/aelaguiz/agent-approvals?rev=07ca7f658f63476a0f8dcab50d5b41d197e79c6e#07ca7f658f63476a0f8dcab50d5b41d197e79c6e" }
 dependencies = [
     { name = "slack-sdk" },
 ]
