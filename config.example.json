@@ -1,0 +1,21 @@
+{
+  "owner": "Sam",
+  "owner_addresses": ["sam@example.com", "sam@example.org"],
+  "grants_dir": "~/secrets/google",
+  "home_machine": "laptop",
+  "start_time": "2026-01-01T00:00:00+00:00",
+  "machines": {"laptop": "sam@laptop", "server": "sam@server"},
+  "agent_domain": "example.com",
+  "default_account": "sam",
+  "owner_accounts": {"sam": null, "side-business": "sam+agent@example.org"},
+  "start_command": "aim claude run opus",
+  "agent_repos": ["~/workspace/brain"],
+  "folders": [
+    {"path": "~", "account": "chief", "to": "sam@example.com"},
+    {"path": "~/workspace/side-business", "account": "side-business", "to": "sam@example.org"}
+  ],
+  "mailboxes": {
+    "chief": {"folder": "~/workspace/brain"},
+    "side-business": {"address": "sam+agent@example.org", "own_mailbox": true, "folder": "~/workspace/side-business"}
+  }
+}

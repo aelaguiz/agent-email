@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""The one Google command. Linked as gws-<account>; the name it is called by picks the account.
+
+Every account logs in from a saved grant file, never the keychain, so it works over ssh and from a scheduled job, and
+an account with no grant refuses to run rather than falling through to another identity. A send is run as a child so
+that a record of which session sent it can be saved afterward. Nothing after a send is allowed to affect it.
+
+Every agent's Google access runs through here, so keep it small. Standard library only, and it has to run on the
+Python that ships with macOS (3.9).
+"""
+import json
+import os
+import subprocess
+import sys
+from email.utils import getaddresses
+
+HOME = os.path.expanduser("~")
+ROOT = os.environ.get("AGENT_EMAIL_HOME") or os.path.join(HOME, ".agent-email")
+GENERIC_NAMES = ("Claude (agent)", "Codex (agent)", "Unnamed (agent)")
+HELPERS = ("+send", "+reply", "+reply-all", "+forward")
+SETUP_COMMANDS = ("login", "logout", "setup")
+
+
+def die(message):
+    sys.stderr.write(message + "\n")
+    sys.exit(78)
+
+
+def load(name):
+    try:
+        with open(os.path.join(ROOT, name)) as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        die(f"gws-account: can't read {os.path.join(ROOT, name)}: {e}")
+
+
+def account_name(called_as, settings):
+    """Bare `gws` is the owner's default account, or the one of his accounts GWS_PROFILE names."""
+    name = os.path.basename(called_as)
+    if name == "gws":
+        profiles = settings.get("owner_accounts") or {}
+        profile = os.environ.get("GWS_PROFILE") or settings.get("default_account")
+        if profile not in profiles:
+            die(f"Unknown GWS_PROFILE; expected one of {', '.join(profiles)}.")
+        return profile
+    if name.startswith("gws-") and len(name) > 4:
+        return name[4:]
+    die(f"gws-account: run this as gws-<account>, not {name}.")
+
+
+def google_env(account, grant, settings):
+    config = os.path.join(HOME, ".config", "gws-agents", account)
+    os.makedirs(config, mode=0o700, exist_ok=True)
+    env = dict(os.environ)
+    for key in ("GOOGLE_WORKSPACE_CLI_TOKEN", "GOOGLE_WORKSPACE_CLI_CLIENT_ID", "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET",
+                "GOOGLE_WORKSPACE_PROJECT_ID", "GWS_PROFILE"):
+        env.pop(key, None)
+    env["GOOGLE_WORKSPACE_CLI_CONFIG_DIR"] = config
+    env["GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE"] = grant
+    env["GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND"] = "file"
+    # This path never exists: it stops gws falling back to the machine's gcloud login.
+    env["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(config, ".adc-fallback-disabled")
+    return env
+
+
+def send_kind(args):
+    """Which kind of send this is, or None if nothing goes out."""
+    if "--dry-run" in args or "--draft" in args or len(args) < 2 or args[0] != "gmail":
+        return None
+    if args[1] in HELPERS:
+        return args[1]
+    if args[1:4] in (["users", "messages", "send"], ["users", "drafts", "send"]):
+        return " ".join(args[1:4])
+    return None
+
+
+def flag_values(args, *names):
+    out = []
+    for i, a in enumerate(args):
+        if a in names and i + 1 < len(args):
+            out.append(args[i + 1])
+        elif a.split("=", 1)[0] in names and "=" in a:
+            out.append(a.split("=", 1)[1])
+    return out
+
+
+def sender_flag(args, account, settings):
+    """The agent's name on the email, so a shared mailbox still shows who wrote it. Only inside an agent session, and
+    never on the owner's own accounts, where an agent may be writing to someone else in his name. The one exception
+    is an owner account with an agent address of its own, for mail going only to the owner."""
+    if args[1] not in HELPERS or flag_values(args, "--from"):
+        return []
+    if not (os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CODEX_THREAD_ID")):
+        return []
+    name = os.environ.get("GIT_AUTHOR_NAME") or ""
+    if name in GENERIC_NAMES:
+        name = ""
+    owner_accounts = settings.get("owner_accounts") or {}
+    if account in owner_accounts:
+        address = owner_accounts[account]
+        if not address:
+            return []
+        owners = {a.lower() for a in settings.get("owner_addresses") or []}
+        sent_to = [a.lower() for _, a in getaddresses(flag_values(args, "--to", "--cc", "--bcc"))]
+        if not sent_to or not set(sent_to) <= owners:
+            return []
+        return ["--from", f"{name or 'Agent'} <{address}>"]
+    return ["--from", f"{name} <{account}@{settings['agent_domain']}>"] if name else []
+
+
+def save_record(account, kind, result):
+    """Best effort, and detached, because the email has already gone."""
+    if os.environ.get("AGENT_EMAIL_SYSTEM"):
+        return
+    try:
+        subprocess.Popen([os.path.join(HOME, ".local", "bin", "agent-email"), "record", "--account", account,
+                          "--kind", kind, "--result", result],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except Exception:
+        pass
+
+
+def main():
+    args = sys.argv[1:]
+    settings = load("config.json")
+    real = load("machine.json")["gws_bin"]
+    account = account_name(sys.argv[0], settings)
+    grant = os.path.join(os.path.expanduser(settings["grants_dir"]), f"gws-{account}-credentials.json")
+    if not os.path.isfile(grant):
+        die(f"gws-{account}: no saved grant at {grant}; refusing to run.")
+    if args[:1] == ["auth"] and args[1:2] and args[1] in SETUP_COMMANDS:
+        die(f"gws-{account} logs in from a saved grant file. To replace it, see the agent-email README, 'A new login'.")
+    env = google_env(account, grant, settings)
+    kind = send_kind(args)
+    if not kind:
+        os.execve(real, [real] + args, env)
+    done = subprocess.run([real] + args + sender_flag(args, account, settings), stdout=subprocess.PIPE, env=env)
+    sys.stdout.buffer.write(done.stdout)
+    sys.stdout.buffer.flush()
+    if done.returncode == 0:
+        save_record(account, kind, done.stdout.decode("utf-8", "replace"))
+    sys.exit(done.returncode)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,13 @@
+[Unit]
+Description=agent-email listener
+
+[Service]
+ExecStart=@BIN@ listen
+WorkingDirectory=@HOME@
+Environment=PATH=@PATH@
+Environment=HOME=@HOME@
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
