@@ -9,7 +9,7 @@ herdr_bin=$(command -v herdr)
 here=$(uname -sm)
 want=$("$real_gws" --version | head -1)
 ssh_opts="-o BatchMode=yes -o ConnectTimeout=10"
-tools='PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; for d in "$HOME"/.nvm/versions/node/*/bin; do [ -d "$d" ] && PATH="$PATH:$d"; done'
+tools='PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; for d in $(find "$HOME/.nvm/versions/node" -maxdepth 2 -name bin 2>/dev/null); do PATH="$PATH:$d"; done'
 fail=0
 
 for pair in "$@"; do
@@ -31,7 +31,7 @@ p = os.path.expanduser("~/.agent-email/machine.json")
 print(json.load(open(p))["gws_bin"] if os.path.exists(p) else "")
 PY')
   if [ -z "$gws_bin" ]; then
-    gws_bin=$(ssh $ssh_opts "$route" "$tools"'; for c in /opt/homebrew/bin/gws /usr/local/bin/gws "$HOME"/.nvm/versions/node/*/bin/gws; do [ -x "$c" ] && echo "$c"; done' | while read -r c; do
+    gws_bin=$(ssh $ssh_opts "$route" "$tools"'; for c in /opt/homebrew/bin/gws /usr/local/bin/gws $(find "$HOME/.nvm/versions/node" -maxdepth 3 -name gws 2>/dev/null); do [ -x "$c" ] && echo "$c"; done' | while read -r c; do
       [ "$(ssh $ssh_opts "$route" "\"$c\" --version 2>/dev/null | head -1" </dev/null)" = "$want" ] && { echo "$c"; break; }
     done)
     if [ -z "$gws_bin" ] && [ "$there" = "$here" ]; then
