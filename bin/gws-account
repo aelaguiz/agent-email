@@ -105,7 +105,9 @@ def sender_flag(args, account, settings):
         if not sent_to or not set(sent_to) <= owners:
             return []
         return ["--from", f"{name or 'Agent'} <{address}>"]
-    return ["--from", f"{name} <{account}@{settings['agent_domain']}>"] if name else []
+    box = (settings.get("mailboxes") or {}).get(account) or {}
+    address = box.get("address") or f"{account}@{settings['agent_domain']}"
+    return ["--from", f"{name} <{address}>"] if name else []
 
 
 def save_record(account, kind, result):

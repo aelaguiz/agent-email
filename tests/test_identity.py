@@ -1,3 +1,5 @@
+import json
+
 from agent_email import config, identity
 
 
@@ -7,6 +9,19 @@ def test_a_grant_named_for_the_agent_is_its_mailbox(home):
 
 def test_everyone_else_uses_their_folders_default(home):
     assert identity.mailbox_for("cfo-specialist", str(home / "brain/specialists/cfo")) == ("chief", "chief@example.com", "owner@example.org")
+
+
+def test_an_agent_whose_address_isnt_its_name_uses_the_mailbox_that_names_it(home):
+    path = config.ROOT / "config.json"
+    s = json.loads(path.read_text())
+    s["mailboxes"]["money"] = {"address": "ledger@example.com", "agent_id": "cfo-specialist",
+                               "folder": str(home / "brain/specialists/cfo")}
+    path.write_text(json.dumps(s))
+    (home / "grants" / "gws-money-credentials.json").write_text("{}")
+    assert identity.mailbox_for("cfo-specialist", str(home / "brain"))[:2] == ("money", "ledger@example.com")
+    assert identity.mailbox_for("money", str(home / "brain"))[:2] == ("money", "ledger@example.com")
+    box = next(b for b in identity.mailboxes() if b["account"] == "money")
+    assert identity.agent_from_address("ledger@example.com", box) == ("cfo-specialist", box["folder"])
 
 
 def test_the_longest_folder_wins(home):

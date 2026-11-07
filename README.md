@@ -57,7 +57,7 @@ make verify_install
 | `start_command` | What starts a new session. |
 | `agent_repos` | Repositories whose `.agent-identities.json` maps folders to agent names. |
 | `folders` | For a working folder: which account sends and where email to you goes. The longest match wins. |
-| `mailboxes` | Shared mailboxes and plus addresses: who handles new mail there, and in which folder. An agent with a grant of its own needs no entry. |
+| `mailboxes` | Shared mailboxes and plus addresses: who handles new mail there, and in which folder. An agent with a grant of its own needs no entry, unless its address isn't `<account>@<agent_domain>` or its agent name isn't the account's: then an entry with `address` and `agent_id` makes that agent send from that address and get the mail sent to it. |
 
 ## Use
 

@@ -120,6 +120,17 @@ def test_an_agent_mailbox_gets_the_agents_name(world):
     assert called(world).endswith("--from Tech lead (agent) <chief@example.com>")
 
 
+def test_an_agent_mailbox_with_an_address_of_its_own_uses_it(world):
+    cfg = world / ".agent-email" / "config.json"
+    s = json.loads(cfg.read_text())
+    s["mailboxes"] = {"money": {"address": "ledger@example.com"}}
+    cfg.write_text(json.dumps(s))
+    (world / "grants" / "gws-money-credentials.json").write_text("{}")
+    (world / "bin" / "gws-money").symlink_to(SCRIPT)
+    run(world, "gws-money", "gmail", "+send", "--to", "owner@example.com", **session())
+    assert called(world).endswith("--from Tech lead (agent) <ledger@example.com>")
+
+
 def test_a_generic_name_leaves_the_mailbox_as_it_is(world):
     run(world, "gws-chief", "gmail", "+send", "--to", "owner@example.com", **session(GIT_AUTHOR_NAME="Claude (agent)"))
     assert "--from" not in called(world)

@@ -42,11 +42,15 @@ def folder_rule(cwd, s):
 
 
 def mailbox_for(agent_id, cwd, s=None):
-    """(account, address, where his email goes). An agent with a grant of its own uses its own mailbox."""
+    """(account, address, where his email goes). An agent with a grant of its own uses its own mailbox: the account named
+    for it, or a configured mailbox that names it, for an agent whose address isn't its name."""
     s = s or config.settings()
     rule = folder_rule(cwd, s)
-    if agent_id and agent_id not in s["owner_accounts"] and config.grant_path(agent_id, s).exists():
-        return agent_id, f"{agent_id}@{s['agent_domain']}", rule["to"]
+    if agent_id and agent_id not in s["owner_accounts"]:
+        named = [a for a, box in s["mailboxes"].items() if box.get("agent_id") == agent_id and a not in s["owner_accounts"]]
+        for account in [agent_id] + named:
+            if config.grant_path(account, s).exists():
+                return account, address_of(account, s), rule["to"]
     return rule["account"], address_of(rule["account"], s), rule["to"]
 
 
