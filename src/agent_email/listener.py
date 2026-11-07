@@ -114,11 +114,15 @@ class Listener:
     # ----- finding mail -----
 
     def sweep(self):
+        # Read again each time, so a login added or removed while this runs is watched or dropped without a restart.
+        self.boxes = identity.mailboxes(self.s)
         for box in self.watched():
             try:
                 self.sweep_mailbox(box)
             except GmailError as e:
                 log.warning("%s: %s", box["address"], e)
+            except Exception:       # one mailbox's trouble must never hold up the rest, or delivery after them
+                log.exception("%s: couldn't check it", box["address"])
         self.relabel()
         self.queue_pending()
         self.warnings()

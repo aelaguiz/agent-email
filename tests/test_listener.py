@@ -240,6 +240,22 @@ def test_no_warning_once_it_is_answered(home, monkeypatch):
     make(home).warnings()
 
 
+def test_one_mailbox_failing_never_holds_up_the_rest_or_delivery(home):
+    """On the night of November 6 a login removed while the listener ran stopped every pass at its mailbox for nine
+    hours, so the mailboxes after it went unread and nothing was delivered."""
+    class Removed:
+        def search(self, query, limit=50):
+            raise FileNotFoundError("no such grant")
+    l = make(home)
+    l.next_login_check = float("inf")
+    other = FakeAccount()
+    other.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"])
+    l.accounts.update({"chief": Removed(), "growth-lead": other, "side": FakeAccount()})
+    l.sweep()
+    item = only_item()
+    assert item["agent_id"] == "growth-lead" and l.queue.get_nowait() == item["ref"]
+
+
 def test_a_label_that_failed_is_added_on_the_next_pass(home):
     l = make(home)
     sent("sent1")

@@ -39,6 +39,8 @@ Where no message has a label, the home machine takes the reply after 3 minutes, 
 
 Every 30 seconds each listener runs one Gmail search per mailbox for mail from the owner's addresses that isn't yet read by an agent or held back. The home machine watches every mailbox; others watch only mailboxes they have send records for. Outsiders' mail never comes back from this search unless it claims an owner address. The owner's own mailboxes are never searched, except for a configured plus address.
 
+The list of mailboxes is read again at every sweep, so a login added or removed while the listener runs is watched or dropped without a restart. A mailbox that fails is logged and skipped. Nothing about one mailbox may stop the sweep, because delivery comes after it: on the night of November 6 a login removed while the listener ran stopped every sweep at its mailbox, and for nine hours nothing on that machine was delivered.
+
 When a machine owns a reply, it writes the reply's record to disk first, then adds the `agent-email/received` label, then queues it. A restart finds pending records and queues them again.
 
 ## Telling the session

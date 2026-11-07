@@ -37,7 +37,10 @@ class Account:
     def token(self):
         if time.time() < self._expires - 60:
             return self._token
-        grant = json.loads(self.path.read_text())
+        try:
+            grant = json.loads(self.path.read_text())
+        except (OSError, ValueError) as e:      # a login removed or broken: a failure to reach Gmail like any other
+            raise GmailError(f"gws-{self.name}: can't read its grant: {e}") from None
         data = urllib.parse.urlencode({"client_id": grant["client_id"], "client_secret": grant["client_secret"],
                                        "refresh_token": grant["refresh_token"], "grant_type": "refresh_token"})
         got = _request(urllib.request.Request(TOKEN_URL, data=data.encode()))
