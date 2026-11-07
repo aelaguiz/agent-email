@@ -14,7 +14,7 @@ Unit tests can't prove the live path. A change to delivery, routing, the listene
 uv run python tests/live/drive.py <scenario>
 ```
 
-Each scenario starts throwaway sessions in `tests/live/sandbox`, in their own Herdr session, so no real agent is touched. Real mail goes between the owner's accounts and the agent mailboxes, every subject says TEST, and `tests/live/drive.py archive` clears it afterward. The addresses come from `private/live-test.json`, which holds:
+Each scenario starts throwaway sessions in `tests/live/sandbox`, in their own Herdr session, so no real agent is touched. Real mail goes between the owner's accounts and the agent mailboxes, every subject says TEST, and `tests/live/drive.py archive` clears it afterward. Keep a real agent's mailbox off a test thread: his reply-all lands there too, and after the wait the home machine hands it to that agent's own session, as an earlier reply-all scenario did to a pod lead. When a test needs other people on a thread, use his own other mailboxes, which no agent watches. The addresses come from `private/live-test.json`, which holds:
 
 ```json
 {"owner_default": "...", "owner_primary": "...", "owner_personal": "...", "owner_side": "...",
@@ -29,7 +29,8 @@ While testing, add `tests/live` to `agent_repos` in the config, so a plus addres
 | `core` | Send, reply, notice, read, an instruction carried out, an answer, a second turn |
 | `closed` | A closed session is resumed in a tab, then told |
 | `content` | A changed subject; an attachment and a very long reply with a short notice |
-| `replies` | Two quick replies; a listener restart with exactly one notice; every owner address; a plus address on the owner's own mailbox; reply-all |
+| `replies` | Two quick replies; a listener restart with exactly one notice; every owner address; a plus address on the owner's own mailbox |
+| `everyone` | A thread with several people: his reply-all reaches the session, and its answer goes to everyone his email went to, To and Cc as he left them, without the agent's own address, and arrives in each mailbox; a reply to the agent alone is answered to him alone |
 | `new_mail` | A new email starts a session in the agent's folder; a second reaches that running session; a planted instruction in forwarded text is not obeyed |
 | `unmatched` | A reply to an email no session sent reaches the mailbox's agent after the wait, told it isn't the sender |
 | `two_sessions` | Two sessions in one conversation, each getting the reply to its own email |

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 from email.message import EmailMessage
+from email.utils import getaddresses
 from pathlib import Path
 
 from approvals import router, transcripts
@@ -198,7 +199,7 @@ def closed():
 
 
 def replies():
-    """One session: two quick replies, a restart, every owner address, a plus address, reply-all."""
+    """One session: two quick replies, a restart, every owner address, a plus address."""
     s = Session()
 
     tag = tagged("twoquick")
@@ -248,15 +249,58 @@ def replies():
     read_and_answered(tag)
     log("PASS plus address on the owner's own mailbox")
 
-    tag = tagged("replyall")
-    s.tell(f'Run: agent-email send --subject "{tag}" --body "Copying a mailbox." --cc {L["agent_mailbox"]} Then wait.')
-    wait("sent", lambda: sent_with(tag), 120)
-    gws("gws", "gmail", "+reply-all", "--message-id", owner_find(tag), "--body", "Reply-all test. Answer by email with the word six.")
-    read_and_answered(tag)
-    log("PASS reply-all")
-
     s.close()
     log("PASS replies")
+
+
+def agent_mail(cmd, tag):
+    """Mail the agent's mailbox sent in this thread, as one mailbox holds it."""
+    return gws(cmd, "gmail", "users", "messages", "list", "--params", json.dumps(
+        {"userId": "me", "q": f'"{tag}" from:{L["shared_mailbox"]} in:anywhere newer_than:1d', "maxResults": 10})).get("messages", [])
+
+
+def answered_to(tag, n):
+    """Who the agent's newest email in the thread went to, once it has sent n of them."""
+    found = agent_mail(L["shared_cmd"], tag)
+    if len(found) < n:
+        return None
+    newest = max((gws(L["shared_cmd"], "gmail", "users", "messages", "get", "--params", json.dumps(
+        {"userId": "me", "id": m["id"], "format": "metadata", "metadataHeaders": ["To", "Cc"]})) for m in found),
+        key=lambda m: int(m["internalDate"]))
+    fields = {h["name"].lower(): h["value"] for h in newest["payload"]["headers"]}
+    return {f: sorted(a.lower() for _, a in getaddresses([fields.get(f, "")]) if a) for f in ("to", "cc")}
+
+
+def everyone():
+    """A thread with several people on it. His reply-all reaches the session, and its answer goes to everyone his email
+    went to, To and Cc as he left them, less the agent's own address. A reply to the agent alone is answered to him
+    alone. The others on the thread are the owner's other mailboxes, which no agent watches, so no real agent is woken."""
+    tag = tagged("everyone")
+    also_to, also_cc = L["owner_side"], L["owner_personal"]
+    s = Session()
+    s.tell(f'Run: agent-email send --subject "{tag}" --body "A thread with several people on it." '
+           f'--to {L["owner_default"]},{also_to} --cc {also_cc} Then wait.')
+    wait("sent", lambda: sent_with(tag), 120)
+    gws("gws", "gmail", "+reply-all", "--message-id", owner_find(tag), "--to", also_to,
+        "--body", "Reply-all test. Answer by email with the word twelve.")
+    log("owner replied to all")
+    read_and_answered(tag)
+    got = wait("the answer is in the agent's mailbox", lambda: answered_to(tag, 2), 120)
+    log("the answer went to", got)
+    assert got == {"to": sorted([L["owner_default"], also_to]), "cc": [also_cc]}, got
+    for cmd in (L["owner_cmd"], L["side_cmd"], L["personal_cmd"]):
+        wait(f"the answer reached {cmd}'s mailbox", lambda: len(agent_mail(cmd, tag)) >= 2, 120)
+    log("PASS reply-all answered to everyone")
+
+    owner_reply(tag, "Just to you this time. Answer by email with the word thirteen.")
+    read_and_answered(tag, 2)
+    got = wait("the second answer is in the agent's mailbox", lambda: answered_to(tag, 3), 120)
+    log("the second answer went to", got)
+    assert got == {"to": [L["owner_default"]], "cc": []}, got
+    log("PASS a reply to the agent alone answered to him alone")
+
+    s.close()
+    log("PASS everyone")
 
 
 def content():

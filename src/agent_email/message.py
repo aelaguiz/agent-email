@@ -1,7 +1,8 @@
-"""Reading a Gmail message: the owner's own words, anything he forwarded, and his attachments."""
+"""Reading a Gmail message: the owner's own words, anything he forwarded, his attachments, and who else it went to."""
 import base64
 import html
 import re
+from email.utils import getaddresses
 
 QUOTE_RE = re.compile(r"^On [^\n]{5,160}?(?:\n[^\n]{0,80}?){0,2}\bwrote:[ \t]*$", re.M)
 FORWARD_RE = re.compile(r"^-{5,} ?Forwarded message ?-{5,}[ \t]*$", re.M | re.I)
@@ -51,6 +52,19 @@ def split_reply(text):
     if quote:
         text = text[:quote.start()]
     return "\n".join(line for line in text.split("\n") if not line.startswith(">")).strip(), forwarded
+
+
+def reply_all(headers, owner, own):
+    """(to, cc) for an answer that keeps everyone on this email, as a reply-all does: him first, then the email's other
+    To recipients, and its Cc's in Cc. The agent's own addresses come off, so it never writes to itself."""
+    skip = {a.lower() for a in own if a}
+    to, cc = [owner], []
+    for field, out in (("to", to), ("cc", cc)):
+        for _, address in getaddresses([h["value"] for h in headers if h["name"].lower() == field]):
+            address = address.lower()
+            if "@" in address and address not in skip and address not in to + cc:
+                out.append(address)
+    return to, cc
 
 
 def attachments(payload):

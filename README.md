@@ -1,6 +1,6 @@
 # agent-email
 
-Talk to your AI coding agents by email. Reply to any email an agent sent you and the session that sent it is told to read your reply, on whichever machine it runs, whether that session is open or closed. Email an agent's address and that agent picks it up. The agent answers in the same Gmail thread, so you can hold a conversation from your phone.
+Talk to your AI coding agents by email. Reply to any email an agent sent you and the session that sent it is told to read your reply, on whichever machine it runs, whether that session is open or closed. Email an agent's address and that agent picks it up. The agent answers in the same Gmail thread, to everyone your email went to, so you can hold a conversation from your phone.
 
 ```
 agent ── gws-chief gmail +send ──▶ the one Google command ──▶ Gmail ──▶ you
@@ -11,7 +11,7 @@ you reply in Gmail ──▶ the agent's mailbox ──▶ listener: is it reall
 agent session ◀── "[Email] Sam replied to ... Read it: agent-email read EM-..." ◀──┘  (resumed first if it closed)
       │
       └── agent-email read ──▶ your full email and attachments
-      └── agent-email reply ──▶ the same thread ──▶ you
+      └── agent-email reply ──▶ the same thread ──▶ you, and anyone else your email went to
 ```
 
 - **Agents keep sending the way they already do.** Every Google command goes through one script, which notes which session sent each email. Agents don't have to change a thing, and `agent-email send` is there for new work.
@@ -67,7 +67,7 @@ Agents learn it from the skill in [skills/agent-email](skills/agent-email/SKILL.
 agent-email whoami                                # which agent this is, its address and yours
 agent-email send --subject "Report" --body-file report.html --html -a chart.png
 agent-email read EM-1a14d0ee                      # an email and anything else waiting for this session
-agent-email reply EM-1a14d0ee --body "Done."      # answer in the same thread
+agent-email reply EM-1a14d0ee --body "Done."      # answer everyone on that email, in its thread
 agent-email done EM-1a14d0ee                      # it needs no answer
 agent-email inbox                                 # what's waiting
 agent-email accounts --fleet                      # every account, its address, and whether it works on each machine

@@ -40,7 +40,7 @@ Run that command. It shows his email, anything else of his waiting for this sess
 agent-email reply EM-1a14d0ee --body-file answer.txt
 ```
 
-That goes to the address he wrote from, in the same thread. Write it the way you'd write any note to him: the answer first, short, in his words.
+That goes to everyone on the email you're answering, in the same thread, the way a reply-all does: him, and anyone else he wrote to or copied, less your own address. So he decides who hears your answer by how he writes, and when others are on it, `agent-email read` names them. Write it the way you'd write any note to him: the answer first, short, in his words, and plain to the others too, who can't see your session either. Anything meant for him alone goes in a new email with `agent-email send`.
 
 - **A quick job:** do it, then reply once with what happened.
 - **Longer work:** reply first with a line on what you understood and what you're doing, so he doesn't wonder. Then reply again when it's real. Say "done" only once it's true the way he'd take it.
