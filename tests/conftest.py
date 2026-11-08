@@ -3,6 +3,7 @@ import json
 import pytest
 
 from agent_email import config
+from approvals import transcripts
 
 
 @pytest.fixture
@@ -32,4 +33,5 @@ def home(tmp_path, monkeypatch):
     for name, value in (("ROOT", root), ("SENT", root / "sent"), ("INBOUND", root / "inbound"), ("INBOX", root / "inbox"),
                         ("LOGS", root / "logs"), ("LOCK", root / "store.lock")):
         monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(transcripts, "live_sessions", lambda runtime: [])    # no sessions running, unless a test says so
     return tmp_path

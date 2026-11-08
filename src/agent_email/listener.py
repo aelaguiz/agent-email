@@ -2,8 +2,9 @@
 session to read it.
 
 Each machine runs one of these and Gmail is all they share. A reply belongs to the machine named by the label on the
-email it answers, so every listener reaches the same answer and only one acts. Whatever this machine owns goes on disk
-before anything else happens, so a restart picks up where it stopped.
+email it answers, so every listener reaches the same answer and only one acts. New mail belongs to the machine where its
+agent is running. Whatever this machine owns goes on disk before anything else happens, so a restart picks up where it
+stopped.
 """
 import json
 import logging
@@ -14,6 +15,8 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+
+from approvals import transcripts
 
 from . import config, deliver, identity, records, sender
 from .google import Account, GmailError
@@ -94,6 +97,7 @@ class Listener:
         self.home = self.s["home_machine"] == self.me
         self.accounts = {}
         self.boxes = identity.mailboxes(self.s)
+        self.running, self.running_accounts = set(), set()   # agents with a session here, and the mailboxes they use
         self.settled = set()         # emails this process has nothing more to do with
         self.queue = queue.Queue()
         self.queued = set()
@@ -105,17 +109,32 @@ class Listener:
             self.accounts[name] = Account(name, self.s)
         return self.accounts[name]
 
+    def agents_running_here(self):
+        """Agent folders with a Claude session running on this machine, and every mailbox mail for those agents comes
+        into: the agent's own, and the shared one for its folder, which takes plus addresses."""
+        known = identity.known_folders(self.s)
+        folders = {os.path.realpath(cwd) for _, _, cwd in transcripts.live_sessions("claude")
+                   if cwd and os.path.realpath(cwd) in known}
+        accounts = set()
+        for f in folders:
+            try:
+                accounts |= {identity.mailbox_for(known[f], f, self.s)[0], identity.folder_rule(f, self.s)["account"]}
+            except config.ConfigError:
+                pass
+        return folders, accounts
+
     def watched(self):
         if self.home:
             return self.boxes
-        mine = {r["account"] for r in records.all_sent()}
-        return [b for b in self.boxes if b["account"] in mine]
+        mine = {r["account"] for r in records.all_sent()} | self.running_accounts
+        return [b for b in self.boxes if b["account"] in mine or os.path.realpath(b["folder"]) in self.running]
 
     # ----- finding mail -----
 
     def sweep(self):
         # Read again each time, so a login added or removed while this runs is watched or dropped without a restart.
         self.boxes = identity.mailboxes(self.s)
+        self.running, self.running_accounts = self.agents_running_here()
         for box in self.watched():
             try:
                 self.sweep_mailbox(box)
@@ -146,21 +165,39 @@ class Listener:
             return
         refs = message_ids(headers)
         if not refs:
-            if self.home:
-                self.take(box, msg, "new", parent=None)
-            else:
-                self.settled.add(gmail_id)
+            self.for_agent(box, account, msg, "new", after_minutes=0)
             return
         owner, parent = find_owner(account, headers)
         if owner == self.me:
             self.take(box, msg, "reply", parent=parent)
         elif owner is None:
-            if self.home and age_minutes(msg) >= self.s["unlabeled_wait_minutes"]:
-                self.take(box, msg, "unmatched", parent=None)
+            self.for_agent(box, account, msg, "unmatched", after_minutes=self.s["unlabeled_wait_minutes"])
         elif self.home:
             self.check_waiting(box, account, msg, owner)
         else:
             self.settled.add(gmail_id)
+
+    def for_agent(self, box, account, msg, kind, after_minutes):
+        """New mail, and a reply to an email no session sent, go to the agent it's addressed to, on the machine where that
+        agent is running. Where it runs nowhere, the home machine gives the others time to take it, then starts a session."""
+        age = age_minutes(msg)
+        if age < after_minutes:
+            return
+        if RECEIVED in account.label_names(msg.get("labelIds", [])):
+            self.settled.add(msg["id"])          # the machine it's running on took it
+            return
+        _, folder = self.addressee(box, msg)
+        if os.path.realpath(folder) in self.running:
+            self.take(box, msg, kind, parent=None)
+        elif not self.home:
+            self.settled.add(msg["id"])
+        elif age >= after_minutes + self.s["elsewhere_wait_seconds"] / 60:
+            self.take(box, msg, kind, parent=None)
+
+    def addressee(self, box, msg):
+        """(agent id, folder) of the agent an email is for."""
+        delivered_to = sender.value(msg["payload"]["headers"], "delivered-to") or box["address"]
+        return identity.agent_from_address(delivered_to, box, self.s)
 
     def hold(self, box, account, msg, verdict):
         """An email claiming to be the owner that failed the check. He hears once, at his real address, so a real email
@@ -196,8 +233,7 @@ class Listener:
     def take(self, box, msg, kind, parent):
         headers = msg["payload"]["headers"]
         ref = records.ref_for(msg["id"])
-        delivered_to = sender.value(headers, "delivered-to") or box["address"]
-        agent_id, folder = identity.agent_from_address(delivered_to, box, self.s)
+        agent_id, folder = self.addressee(box, msg)
         sent = records.load_sent(box["account"], parent) if parent else None
         item = {
             "ref": ref, "gmail_id": msg["id"], "thread_id": msg["threadId"], "kind": kind,

@@ -1,11 +1,12 @@
 import json
+import os
 from datetime import timedelta
 
 import pytest
 
 import samples as s
-from approvals import router
-from agent_email import config, deliver, listener, records
+from approvals import router, transcripts
+from agent_email import config, deliver, identity, listener, records
 
 
 class FakeAccount:
@@ -121,23 +122,105 @@ def test_a_machine_that_stays_quiet_gets_one_note_to_the_owner(home, box, monkey
     assert len(notes) == 1 and "studio" in notes[0] and not list(records.all_inbound())
 
 
+def age(l, gmail_id, minutes):
+    l.fake.msgs[gmail_id]["internalDate"] = str(int((records.now() - timedelta(minutes=minutes)).timestamp() * 1000))
+
+
 def test_a_reply_with_no_label_waits_then_goes_to_the_mailboxs_agent(home, box):
+    """With the agent running nowhere, the home machine also gives the others their minute and a half to take it."""
     l = make(home)
     l.fake.put("r1", reply("old@x"), ["INBOX"], age_minutes=1)
     l.sweep_mailbox(box)
+    age(l, "r1", 4)
+    l.sweep_mailbox(box)
     assert not list(records.all_inbound())
-    l.fake.msgs["r1"]["internalDate"] = str(int((records.now() - timedelta(minutes=4)).timestamp() * 1000))
+    age(l, "r1", 5)
     l.sweep_mailbox(box)
     item = only_item()
     assert item["kind"] == "unmatched" and item["agent_id"] == "chief" and not item["reach"]
 
 
-def test_only_the_home_machine_takes_unmatched_and_new_mail(home, box):
+def test_a_machine_the_agent_isnt_running_on_leaves_its_new_and_unmatched_mail(home, box):
     l = make(home, machine="studio")
     l.fake.put("r1", reply("old@x"), ["INBOX"], age_minutes=60)
     l.fake.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"], age_minutes=1)
     l.sweep_mailbox(box)
     assert not list(records.all_inbound())
+
+
+def running(l, *folders):
+    l.running = {os.path.realpath(f) for f in folders}
+
+
+def test_new_mail_goes_straight_to_the_machine_where_its_agent_is_running(home, box):
+    l = make(home, machine="studio")
+    running(l, box["folder"])
+    l.fake.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"], age_minutes=0.1)
+    l.sweep_mailbox(box)
+    item = only_item()
+    assert item["kind"] == "new" and item["agent_id"] == "chief" and ("n1", listener.RECEIVED) in l.fake.added
+
+
+def test_the_home_machine_takes_new_mail_at_once_for_an_agent_running_there(home, box):
+    l = make(home)
+    running(l, box["folder"])
+    l.fake.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"], age_minutes=0.1)
+    l.sweep_mailbox(box)
+    assert only_item()["kind"] == "new"
+
+
+def test_the_home_machine_leaves_new_mail_another_machine_took(home, box):
+    l = make(home)
+    l.fake.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"], age_minutes=0.5)
+    l.sweep_mailbox(box)
+    assert not list(records.all_inbound())
+    l.fake.msgs["n1"]["labelIds"].append(listener.RECEIVED)      # the machine the agent runs on took it
+    age(l, "n1", 3)
+    l.sweep_mailbox(box)
+    assert not list(records.all_inbound())
+
+
+def test_with_its_agent_running_nowhere_the_home_machine_takes_new_mail_after_the_wait(home, box):
+    l = make(home)
+    l.fake.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"], age_minutes=1)
+    l.sweep_mailbox(box)
+    assert not list(records.all_inbound())
+    age(l, "n1", 1.6)
+    l.sweep_mailbox(box)
+    assert only_item()["kind"] == "new"
+
+
+def test_a_reply_no_session_sent_goes_to_the_machine_where_the_mailboxs_agent_runs(home, box):
+    l = make(home, machine="studio")
+    running(l, box["folder"])
+    l.fake.put("r1", reply("old@x"), ["INBOX"], age_minutes=1)
+    l.sweep_mailbox(box)
+    assert not list(records.all_inbound())
+    age(l, "r1", 3.5)
+    l.sweep_mailbox(box)
+    assert only_item()["kind"] == "unmatched"
+
+
+def test_a_plus_address_reaches_its_agent_on_the_machine_it_runs_on(home, box):
+    l = make(home, machine="studio")
+    running(l, home / "brain/specialists/cfo")
+    l.fake.put("n1", s.h(Delivered_To="chief+cfo-specialist@example.com") + s.DEFAULT_SENDER[1:] + s.h(Subject="Do this"),
+               ["INBOX"], age_minutes=0.1)
+    l.sweep_mailbox(box)
+    assert only_item()["agent_id"] == "cfo-specialist"
+
+
+def test_a_machine_watches_the_mailboxes_of_the_agents_running_on_it(home, monkeypatch):
+    """Its own mailbox, and the shared one that takes plus addresses for its folder. A session in the user's home
+    directory isn't an agent, even for an agent whose repository this machine lacks."""
+    (home / "grants/gws-ai-lead-credentials.json").write_text("{}")
+    monkeypatch.setattr(transcripts, "live_sessions", lambda runtime: [
+        (1, "a", str(home / "brain/pods/growth/lead")), (2, "b", os.path.expanduser("~")), (3, "c", "/somewhere/else")])
+    l = make(home, machine="studio")
+    l.boxes = identity.mailboxes(l.s)
+    assert not l.watched()
+    l.running, l.running_accounts = l.agents_running_here()
+    assert sorted(b["account"] for b in l.watched()) == ["chief", "growth-lead"]
 
 
 def test_new_mail_reaches_the_agent_it_was_addressed_to(home, box):

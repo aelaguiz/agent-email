@@ -72,6 +72,16 @@ def agent_folders(s=None):
     return out
 
 
+def known_folders(s=None):
+    """Every folder that belongs to an agent, real path to agent id: each repository's agents, and each configured
+    mailbox's folder."""
+    s = s or config.settings()
+    out = {os.path.realpath(f): agent for agent, f in agent_folders(s).items()}
+    for account, box in s["mailboxes"].items():
+        out.setdefault(os.path.realpath(os.path.expanduser(box["folder"])), box.get("agent_id") or account)
+    return out
+
+
 def mailboxes(s=None):
     """Every mailbox the system watches: the configured ones, and each agent's own account."""
     s = s or config.settings()
@@ -83,8 +93,8 @@ def mailboxes(s=None):
                     "agent_id": box.get("agent_id") or account})
     for account in config.accounts(s):
         if account not in s["owner_accounts"] and account not in s["mailboxes"]:
-            # Machines without the agent's repository still watch its mailbox for mail their sessions sent. Only the
-            # home machine ever starts a session from this folder.
+            # Machines without the agent's repository still watch its mailbox for mail their sessions sent. The user's
+            # home directory stands in for the missing folder, and a session there never counts as the agent running.
             out.append({"account": account, "address": address_of(account, s), "own_mailbox": False,
                         "folder": folders.get(account) or os.path.expanduser("~"), "agent_id": account})
     return out

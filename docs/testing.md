@@ -22,7 +22,7 @@ Each scenario starts throwaway sessions in `tests/live/sandbox`, in their own He
  "owner_cmd": "gws", "personal_cmd": "gws-personal", "side_cmd": "gws-side", "shared_cmd": "gws-chief", "agent_cmd": "gws-pod-member"}
 ```
 
-While testing, add `tests/live` to `agent_repos` in the config, so a plus address can reach the sandbox as the agent `email-test`, and point `start_command` at a small model.
+Keep `~/workspace/agent-email/tests/live` in `agent_repos` on every machine, so a plus address reaches the sandbox as the agent `email-test`. No real agent has that name, so it changes nothing else. Where something keeps the config the same on every machine, as devcluster can, a test that edits it on one machine shows up there as a local change. The `elsewhere` scenario needs the agent-email checkout at that path on the other machine as well.
 
 | Scenario | What it proves |
 | --- | --- |
@@ -37,6 +37,7 @@ While testing, add `tests/live` to `agent_repos` in the config, so a plus addres
 | `codex` | An open and a closed Codex session |
 | `fleet <machine>` | A session on another machine sends and closes, and a reply resumes it there |
 | `fleet <machine> off` | The same with that machine's listener stopped: the reply waits, no other machine takes it, and it arrives when the listener is back |
+| `elsewhere <machine>` | A new email for an agent running on another machine reaches that session there and is answered once; the home machine leaves it |
 
 Usage-limit and moved-copy handling is approvals' code, covered by its own tests and real use. The warnings are unit tested; to see a real one, age an inbound record by hand.
 

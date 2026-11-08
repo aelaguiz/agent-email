@@ -48,7 +48,8 @@ make verify_install
 | `owner` | Your name, as agents see it. |
 | `owner_addresses` | Every address you write from, aliases included. Only these count as you. The first is where system notes about held-back mail go. |
 | `grants_dir` | The folder holding `gws-<account>-credentials.json` files. |
-| `home_machine` | The machine that takes new emails and replies with no known sender. |
+| `home_machine` | The machine that takes new emails and replies with no known sender when their agent isn't running anywhere, and starts a session for it. Where the agent is running, that machine takes them. |
+| `elsewhere_wait_seconds` | How long the home machine leaves such an email for the machine the agent is running on before it takes it. 90 by default: three passes of every listener. |
 | `start_time` | Mail from before this is ignored, so old replies don't wake anyone. Set it when you install. |
 | `machines` | Each machine's name and ssh route, for `accounts --fleet`. |
 | `agent_domain` | The domain of agent mailboxes: account `chief` is `chief@<agent_domain>`. |

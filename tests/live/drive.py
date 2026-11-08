@@ -456,6 +456,57 @@ def fleet():
     log(f"PASS fleet {name}")
 
 
+# A throwaway session left running in the sandbox on another machine, in its own Herdr session. Prints its pane.
+REMOTE_SESSION = r'''
+set -e
+S=email-test
+T="$HOME/workspace/agent-email/tests/live/sandbox"
+"$HOME/.local/share/uv/tools/agent-email/bin/python" -c "from approvals import router; router.ensure_herdr('$S')"
+read -r ws pane < <(herdr --session $S workspace create --cwd "$T" --label email-test --no-focus |
+  python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r["workspace"]["workspace_id"], r["root_pane"]["pane_id"])')
+herdr --session $S pane run "$pane" "cd $T && aim claude run sonnet" >/dev/null
+for _ in $(seq 1 60); do
+  sleep 3
+  screen=$(herdr --session $S pane read "$pane" --source recent-unwrapped --lines 25 2>/dev/null || true)
+  if grep -q "Yes, I trust this folder" <<<"$screen"; then herdr --session $S pane send-keys "$pane" down enter >/dev/null; continue; fi
+  grep -q "bypass permissions" <<<"$screen" && break
+done
+grep -q "bypass permissions" <<<"$screen" || { echo "the session didn't come up"; exit 1; }
+echo "PANE $pane"
+'''
+
+
+def elsewhere():
+    """A new email for an agent running on another machine reaches it there, and this machine, the home one, leaves it
+    alone. Both machines need tests/live in agent_repos."""
+    name = sys.argv[2]
+    route = config.settings()["machines"][name]
+    tools = 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"'
+    r = subprocess.run(["ssh", route, f"{tools}; bash -s"], input=REMOTE_SESSION, capture_output=True, text=True, timeout=300)
+    pane = next((line.split()[1] for line in r.stdout.splitlines() if line.startswith("PANE ")), None)
+    assert pane, f"no session on {name}: {r.stdout[-300:]} {r.stderr[-300:]}"
+    log(f"session up on {name} in {pane}")
+    try:
+        tag = tagged("elsewhere")
+        sent_at = time.time()
+        gws("gws", "gmail", "+send", "--to", PLUS, "--subject", tag, "--body", "New instruction: answer by email with the word twelve.")
+        from_agent = lambda: gws(L["owner_cmd"], "gmail", "users", "messages", "list", "--params", json.dumps(
+            {"userId": "me", "q": f'"{tag}" -from:me newer_than:1d', "maxResults": 5})).get("messages", [])
+        wait("the agent's answer reached the owner", from_agent, 300)
+        time.sleep(max(0, sent_at + 150 - time.time()))      # past the home machine's wait, and a pass after it
+        assert not inbound_with(tag), "the home machine took it too"
+        there = subprocess.run(["ssh", route, f"grep -l '{tag}' ~/.agent-email/inbound/*.json | xargs cat"],
+                               capture_output=True, text=True, timeout=60).stdout
+        item = json.loads(there)
+        log("on", name, ":", item["kind"], item["agent_id"], "read", bool(item["read_at"]), "answered", bool(item["answered_at"]))
+        assert item["kind"] == "new" and item["agent_id"] == "email-test" and item["read_at"]
+        assert len(from_agent()) == 1, "more than one answer"
+        log(f"PASS elsewhere {name}")
+    finally:
+        subprocess.run(["ssh", route, f"{tools}; herdr --session email-test pane close {pane}; herdr --session email-test server stop"],
+                       capture_output=True, timeout=60)
+
+
 def route_is_mac(route):
     return subprocess.run(["ssh", route, "uname"], capture_output=True, text=True).stdout.strip() == "Darwin"
 

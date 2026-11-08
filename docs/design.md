@@ -31,13 +31,13 @@ Every listener reaches the same answer from what's in Gmail, so exactly one acts
 2. Look each id up in the mailbox with `rfc822msgid:`. The nearest message with an `agent-email/from-<machine>` label names the owner.
 3. That machine's send record names the session.
 
-Where no message has a label, the home machine takes the reply after 3 minutes, as a reply to the mailbox's own agent, and tells that session it didn't send the email. A new email, with no reply headers at all, goes to the home machine straight away.
+Where no message has a label, the reply waits 3 minutes and then goes to the mailbox's own agent, which is told it didn't send the email. That agent's mail, and a new email with no reply headers at all, belongs to the agent it's addressed to, on the machine where that agent is running: see [New mail](#new-mail).
 
 **A machine that's off delays a reply; it never reroutes it.** A session can only resume on the machine it ran on, and another agent reading "Merge 9029" would have no idea what it refers to. After 30 minutes the home machine tells the owner the reply is waiting and why. Nothing ages out: the search runs from a fixed `start_time`, not a rolling window, so a reply is picked up however long its machine was off.
 
 ## The sweep
 
-Every 30 seconds each listener runs one Gmail search per mailbox for mail from the owner's addresses that isn't yet read by an agent or held back. The home machine watches every mailbox; others watch only mailboxes they have send records for. Outsiders' mail never comes back from this search unless it claims an owner address. The owner's own mailboxes are never searched, except for a configured plus address.
+Every 30 seconds each listener runs one Gmail search per mailbox for mail from the owner's addresses that isn't yet read by an agent or held back. The home machine watches every mailbox. Others watch the mailboxes they have send records for, and those of the agents running on them right now: the agent's own, and the shared one that takes plus addresses for its folder. Outsiders' mail never comes back from this search unless it claims an owner address. The owner's own mailboxes are never searched, except for a configured plus address.
 
 The list of mailboxes is read again at every sweep, so a login added or removed while the listener runs is watched or dropped without a restart. A mailbox that fails is logged and skipped. Nothing about one mailbox may stop the sweep, because delivery comes after it: on the night of November 6 a login removed while the listener ran stopped every sweep at its mailbox, and for nine hours nothing on that machine was delivered.
 
@@ -59,7 +59,17 @@ A failure retries after 5 minutes, then hourly after three failures, with one no
 
 If a session already has a notice it hasn't acted on, a second reply doesn't send another: one `agent-email read` shows everything waiting for that session.
 
-**A new email** goes to the one Claude session running in the agent's folder, if there is exactly one. Otherwise a new session starts there, in a tab of its own, and its id is saved before the notice goes in, so a retry doesn't start a second one.
+## New mail
+
+A new email is an instruction to an agent, so it goes where that agent is working. Agents run on different machines, and sending all their new mail to the home machine started a second copy of the agent there, without the work the first one had open.
+
+**The machine where the agent is running takes it straight away.** "Running" means a Claude session on that machine whose working folder is the agent's folder: one of the folders in an agent repository's `.agent-identities.json`, or a configured mailbox's. A session in the user's home directory never counts, because a machine without the agent's repository uses that directory in place of the agent's folder. The machine writes the record and adds the `agent-email/received` label, as for any reply it owns.
+
+**Where the agent is running nowhere, the home machine takes it,** 90 seconds on (`elsewhere_wait_seconds`), unless the label shows that another machine took it. That gives every listener three passes to see the email.
+
+Either way, the email goes to the one Claude session in the agent's folder on that machine, if there is exactly one. Otherwise a new session starts there, in a tab of its own, and its id is saved before the notice goes in, so a retry doesn't start a second one.
+
+Two machines running the same agent at once could both take the same email if they look within the same few seconds. Each checks the label first, which closes most of that gap.
 
 ## Answering
 

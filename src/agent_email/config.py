@@ -18,6 +18,7 @@ DEFAULTS = {
     "owner": "the owner",
     "poll_seconds": 30,
     "unlabeled_wait_minutes": 3,     # how long a reply with no machine label waits before the home machine takes it
+    "elsewhere_wait_seconds": 90,    # how long the home machine leaves mail for an agent it isn't running, for the machine that is
     "machine_off_minutes": 30,       # how long a reply waits on another machine before the owner hears why
     "warn_minutes": 15,              # how long an agent has to read and answer before the owner hears about it
     "herdr_session": "email",
