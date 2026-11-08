@@ -2,7 +2,6 @@
 been through real use. This adds what approvals never needs: starting a new session for an agent."""
 import os
 import shlex
-import subprocess
 import time
 
 import approvals.config
@@ -28,20 +27,8 @@ def herdr_session():
 
 
 def ensure_herdr(session):
-    """A headless Herdr server for sessions this tool starts or resumes, with a clean environment so its shells load
-    the user's own profile rather than inheriting this service's."""
-    if session in router.herdr_sessions():
-        return
-    keep = ("HOME", "USER", "LOGNAME", "SHELL", "PATH", "LANG", "SSH_AUTH_SOCK")
-    env = {k: os.environ[k] for k in keep if k in os.environ}
-    env.update(TERM="xterm-256color", HERDR_SESSION=session, HERDR_STARTUP_CWD=os.path.expanduser("~"))
-    subprocess.Popen(["herdr", "server"], env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True)
-    for _ in range(40):
-        time.sleep(0.25)
-        if session in router.herdr_sessions():
-            return
-    raise RuntimeError(f"the Herdr session {session} did not start")
+    """A headless Herdr server for sessions this tool starts or resumes: approvals' own, which its delivery uses too."""
+    router.ensure_herdr(session)
 
 
 def tell_session(item, notice):
