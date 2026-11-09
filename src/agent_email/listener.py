@@ -15,6 +15,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from email.utils import getaddresses
 
 from approvals import transcripts
 
@@ -195,8 +196,15 @@ class Listener:
             self.take(box, msg, kind, parent=None)
 
     def addressee(self, box, msg):
-        """(agent id, folder) of the agent an email is for."""
-        delivered_to = sender.value(msg["payload"]["headers"], "delivered-to") or box["address"]
+        """(agent id, folder) of the agent an email is for. Mail to an agent with no mailbox of its own is routed into
+        this one, and the address it was sent to says whose it is."""
+        headers = msg["payload"]["headers"]
+        sent_to = [sender.value(headers, "x-gm-original-to")] + [a for _, a in getaddresses([sender.value(headers, "to") or ""])]
+        for address in sent_to:
+            found = identity.agent_without_mailbox(address, self.s)
+            if found:
+                return found
+        delivered_to = sender.value(headers, "delivered-to") or box["address"]
         return identity.agent_from_address(delivered_to, box, self.s)
 
     def hold(self, box, account, msg, verdict):
@@ -347,7 +355,10 @@ class Listener:
         dead = []
         for name in config.accounts(self.s):
             try:
-                self.account(name).profile()
+                if name in self.s["no_mailbox"]:
+                    Account(name, self.s).token()      # no Gmail to ask, so the login itself is the check
+                else:
+                    self.account(name).profile()
             except GmailError as e:
                 if "invalid_grant" in str(e):
                     dead.append(name)

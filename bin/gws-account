@@ -133,6 +133,10 @@ def main():
         die(f"gws-{account}: no saved grant at {grant}; refusing to run.")
     if args[:1] == ["auth"] and args[1:2] and args[1] in SETUP_COMMANDS:
         die(f"gws-{account} logs in from a saved grant file. To replace it, see the agent-email README, 'A new login'.")
+    if args[:1] == ["gmail"] and account in (settings.get("no_mailbox") or []):
+        die(f"gws-{account} has no Gmail. Its mail goes to the shared mailbox for its folder: send with "
+            f"`agent-email send`, which goes out from there under your name, and read what reached you with "
+            f"`agent-email read`.")
     env = google_env(account, grant, settings)
     kind = send_kind(args)
     if not kind:

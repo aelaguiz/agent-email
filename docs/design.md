@@ -71,6 +71,10 @@ Either way, the email goes to the one Claude session in the agent's folder on th
 
 Two machines running the same agent at once could both take the same email if they look within the same few seconds. Each checks the label first, which closes most of that gap.
 
+## Agents without a mailbox
+
+An agent's Google login can have no Gmail, so nobody pays for an inbox it doesn't read. Its account goes in `no_mailbox`. It then sends from its folder's account, as an agent with no login of its own does, under its own name. Nothing watches its address. Google reroutes mail sent to that address into the shared mailbox, and the listener gives each email to the agent it was sent to. It reads that from `X-Gm-Original-To`, which Google adds when it reroutes, and from the To line, which it leaves alone. A reply to an email the agent sent before it lost its mailbox has no machine label in the shared mailbox, so it goes to that agent the same way. `gws-<account> gmail` refuses with a pointer to `agent-email`, because Google's own error doesn't say where the mail went. The login check asks for a token instead of the mailbox's profile.
+
 ## Answering
 
 `agent-email reply` answers in the thread and keeps everyone on the email it answers, as a reply-all does: the owner's address first, then that email's other To recipients in To and its Cc's in Cc, read from the email itself when the agent answers. The agent's own addresses come off: the mailbox it sends from, and the address his email reached it at, such as a plus address. So he decides who hears an answer by how he writes. A reply-all on a thread with several people gets an answer to all of them, and a reply to the agent alone gets an answer to him alone. `agent-email read` names whoever else is on his email, so the agent knows who it is writing for.

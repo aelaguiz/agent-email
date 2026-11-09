@@ -400,3 +400,35 @@ def test_only_the_home_machine_checks_logins(home, monkeypatch):
     l.home = False
     l.check_logins()
     assert not sent
+
+
+def no_mailbox(*accounts):
+    path = config.ROOT / "config.json"
+    cfg = json.loads(path.read_text())
+    cfg["no_mailbox"] = list(accounts)
+    path.write_text(json.dumps(cfg))
+
+
+@pytest.mark.parametrize("routed", [s.h(X_Gm_Original_To="growth-lead@example.com", Delivered_To="chief@example.com"),
+                                    s.h(Delivered_To="chief@example.com")])
+def test_mail_routed_from_an_agent_with_no_mailbox_reaches_that_agent(home, box, routed):
+    """With the header Google adds when it reroutes, or with only the To line it leaves alone."""
+    no_mailbox("growth-lead")
+    l = make(home)
+    headers = [h for h in s.DEFAULT_SENDER if h["name"].lower() not in ("to", "delivered-to")] + s.h(To="growth-lead@example.com")
+    l.fake.put("n1", routed + headers + s.h(Subject="Do this"), ["INBOX"])
+    l.sweep_mailbox(box)
+    item = only_item()
+    assert item["agent_id"] == "growth-lead" and item["folder"].endswith("pods/growth/lead")
+
+
+def test_an_agent_with_no_mailbox_is_checked_by_its_login_alone(home, monkeypatch):
+    no_mailbox("growth-lead")
+    l = make(home)
+    checked = []
+    monkeypatch.setattr(listener.Account, "token", lambda self: checked.append(self.name) or "t")
+    monkeypatch.setattr(listener.Account, "profile", lambda self: {})
+    l.fake.profile = lambda: {}
+    l.boxes = identity.mailboxes(l.s)
+    l.check_logins()
+    assert checked == ["growth-lead"]

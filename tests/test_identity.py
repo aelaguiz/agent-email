@@ -50,3 +50,14 @@ def test_a_plus_tag_names_an_agent(home):
     assert identity.agent_from_address("chief+cfo-specialist@example.com", chief)[1].endswith("specialists/cfo")
     assert identity.agent_from_address("chief@example.com", chief)[0] == "chief"
     assert identity.agent_from_address("chief+nobody@example.com", chief) == ("nobody", chief["folder"])
+
+
+def test_an_agent_without_a_mailbox_sends_from_its_folders_and_isnt_watched(home):
+    path = config.ROOT / "config.json"
+    s = json.loads(path.read_text())
+    s["no_mailbox"] = ["growth-lead"]
+    path.write_text(json.dumps(s))
+    assert identity.mailbox_for("growth-lead", str(home / "brain/pods/growth/lead"))[:2] == ("chief", "chief@example.com")
+    assert "growth-lead" not in {b["account"] for b in identity.mailboxes()}
+    assert identity.agent_without_mailbox("Growth-Lead@example.com")[1].endswith("pods/growth/lead")
+    assert identity.agent_without_mailbox("chief@example.com") is None

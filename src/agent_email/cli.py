@@ -58,7 +58,8 @@ def inbound_or_die(ref):
 def recipients(item, headers):
     """Who an answer goes to: everyone on the email it answers, less this agent's own addresses, which are the mailbox
     it sends from and the address his email reached it at, such as a plus address."""
-    return message.reply_all(headers, item["reply_to"], (item["mailbox"], sender.value(headers, "delivered-to")))
+    return message.reply_all(headers, item["reply_to"], (item["mailbox"], sender.value(headers, "delivered-to"),
+                                                         sender.value(headers, "x-gm-original-to")))
 
 
 def cmd_reply(a):
@@ -201,7 +202,11 @@ def check_accounts(s):
     rows = []
     for name in config.accounts(s):
         try:
-            rows.append({"account": name, "address": Account(name, s).profile()["emailAddress"], "ok": True})
+            if name in s["no_mailbox"]:
+                Account(name, s).token()
+                rows.append({"account": name, "address": identity.address_of(name, s), "ok": True})
+            else:
+                rows.append({"account": name, "address": Account(name, s).profile()["emailAddress"], "ok": True})
         except (GmailError, KeyError, ValueError, OSError) as e:
             rows.append({"account": name, "address": None, "ok": False, "error": str(e)[:160]})
     return rows

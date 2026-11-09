@@ -156,3 +156,14 @@ def test_an_owner_account_with_an_agent_address_uses_it_only_for_mail_to_the_own
     assert "owner+agent@example.org" in called(world)
     run(world, "gws-side", "gmail", "+send", "--to", "merchant@shop.com", **session())
     assert "--from" not in called(world)
+
+
+def test_an_account_with_no_mailbox_refuses_gmail_and_keeps_everything_else(world):
+    cfg = world / ".agent-email" / "config.json"
+    s = json.loads(cfg.read_text())
+    s["no_mailbox"] = ["growth-lead"]
+    cfg.write_text(json.dumps(s))
+    done = run(world, "gws-growth-lead", "gmail", "+send", "--to", "owner@example.com")
+    assert done.returncode == 78 and "agent-email send" in done.stderr and not (world / "called").exists()
+    run(world, "gws-growth-lead", "drive", "files", "list")
+    assert called(world) == "drive files list"
