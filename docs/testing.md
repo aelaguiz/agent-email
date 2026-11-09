@@ -37,6 +37,8 @@ Keep `~/workspace/agent-email/tests/live` in `agent_repos` on every machine, so 
 | `codex` | An open and a closed Codex session |
 | `fleet <machine>` | A session on another machine sends and closes, and a reply resumes it there |
 | `fleet <machine> off` | The same with that machine's listener stopped: the reply waits, no other machine takes it, and it arrives when the listener is back |
+| `own_address` | Mail to an agent's own address, routed by Google into the shared mailbox, reaches that agent as new mail (needs `email-test@` in the domain's recipient address map) |
+| `handoff` | An email that reached the wrong agent, handed on, reaches the right one (the sandbox2 agent, `email-test-2`) as its own, and its answer is in his thread |
 | `elsewhere <machine>` | A new email for an agent running on another machine reaches that session there and is answered once; the home machine leaves it |
 
 Usage-limit and moved-copy handling is approvals' code, covered by its own tests and real use. The warnings are unit tested; to see a real one, age an inbound record by hand.

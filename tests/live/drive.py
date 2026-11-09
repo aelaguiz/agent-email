@@ -22,6 +22,8 @@ SANDBOX = str(Path(__file__).parent / "sandbox")
 HERDR = "email-test"
 L = json.loads((Path(__file__).parent.parent.parent / "private" / "live-test.json").read_text())
 PLUS = L["shared_mailbox"].replace("@", "+email-test@")
+OWN = "email-test@" + L["shared_mailbox"].split("@")[1]
+SANDBOX2 = str(Path(__file__).parent / "sandbox2")
 OUR_SUBJECT = re.compile(r"^(Re: |Fwd: )*TEST [a-z0-9 -]+ \d{10}$")
 
 
@@ -525,6 +527,50 @@ def archive():
                 gws(cmd, "gmail", "users", "messages", "modify", "--params", json.dumps({"userId": "me", "id": i}), "--json", json.dumps({"removeLabelIds": ["INBOX", "UNREAD"]}))
                 done += 1
         log(cmd, "archived", done, "of", len(ids))
+
+
+def close_sessions(tag):
+    for item in inbound_with(tag):
+        reach = item.get("reach") or {}
+        if reach.get("herdr_pane"):
+            router.Herdr(reach["herdr_session"]).close(reach["herdr_pane"])
+
+
+def own_address():
+    """Mail to an agent's own address, which Google routes into the shared mailbox, reaches that agent as new mail."""
+    tag = tagged("own")
+    gws("gws", "gmail", "+send", "--to", OWN, "--subject", tag, "--body", "New instruction: answer by email with the word ten.")
+    wait("taken for the agent", lambda: field_set(tag, "ref"), 300)
+    item = inbound_with(tag)[0]
+    log("kind", item["kind"], "agent", item["agent_id"], "account", item["account"])
+    assert item["agent_id"] == "email-test" and item["kind"] == "new"
+    read_and_answered(tag)
+    close_sessions(tag)
+    log("PASS own address")
+
+
+def handoff():
+    """An email that reached the wrong agent, handed on, reaches the right one as its own, and the answer stays in his
+    thread."""
+    tag = tagged("handoff")
+    gws("gws", "gmail", "+send", "--to", PLUS, "--subject", tag, "--body",
+        "This one is for the agent email-test-2, not you. Hand it to email-test-2 with agent-email handoff and do "
+        "nothing else. Note for email-test-2: answer by email with the word eleven.")
+    first = wait("told the first agent", lambda: field_set(tag, "notified_at"), 300)[0]["reach"]
+    wait("handed on", lambda: [i for i in inbound_with(tag) if i["agent_id"] == "email-test-2"], 420)
+    wait("read by the new agent", lambda: field_set(tag, "read_at"), 300)
+    wait("answered by the new agent", lambda: field_set(tag, "answered_at"), 300)
+    item = inbound_with(tag)[0]
+    assert item["kind"] == "handoff" and item["folder"].endswith("sandbox2") and item["handed_from"] == "email-test"
+    thread = gws(L["owner_cmd"], "gmail", "users", "messages", "get", "--params",
+                 json.dumps({"userId": "me", "id": owner_find(tag), "format": "minimal"}))["threadId"]
+    msgs = gws(L["owner_cmd"], "gmail", "users", "threads", "get", "--params",
+               json.dumps({"userId": "me", "id": thread, "format": "minimal"}))["messages"]
+    log("messages in his thread:", len(msgs))
+    assert len(msgs) >= 2, "the answer isn't in his thread"
+    close_sessions(tag)
+    router.Herdr(first["herdr_session"]).close(first["herdr_pane"])
+    log("PASS handoff")
 
 
 if __name__ == "__main__":
