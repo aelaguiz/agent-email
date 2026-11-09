@@ -58,8 +58,7 @@ make verify_install
 | `start_command` | What starts a new session. |
 | `agent_repos` | Repositories whose `.agent-identities.json` maps folders to agent names. |
 | `folders` | For a working folder: which account sends and where email to you goes. The longest match wins. |
-| `mailboxes` | Shared mailboxes and plus addresses: who handles new mail there, and in which folder. An agent with a grant of its own needs no entry, unless its address isn't `<account>@<agent_domain>` or its agent name isn't the account's: then an entry with `address` and `agent_id` makes that agent send from that address and get the mail sent to it. |
-| `no_mailbox` | Accounts whose Google login has no Gmail, so it costs no mailbox. Their grant still works for Drive and the rest. Agents on them send from their folder's account under their own name, mail routed from their address into that mailbox still reaches them, and `gws-<account> gmail` refuses with a pointer to `agent-email`. |
+| `mailboxes` | The only accounts with Gmail besides yours: shared mailboxes and plus addresses, who handles new mail there, and in which folder. An entry with `address` and `agent_id` gives one agent a mailbox of its own. Every other agent's Google login is a login only: it sends from its folder's mailbox under its own name, mail to `<agent>@<agent_domain>` must be routed by Google into a mailbox here, and `gws-<account> gmail` refuses. |
 
 ## Use
 

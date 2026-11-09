@@ -71,9 +71,13 @@ Either way, the email goes to the one Claude session in the agent's folder on th
 
 Two machines running the same agent at once could both take the same email if they look within the same few seconds. Each checks the label first, which closes most of that gap.
 
-## Agents without a mailbox
+## One shared mailbox
 
-An agent's Google login can have no Gmail, so nobody pays for an inbox it doesn't read. Its account goes in `no_mailbox`. It then sends from its folder's account, as an agent with no login of its own does, under its own name. Nothing watches its address. Google reroutes mail sent to that address into the shared mailbox, and the listener gives each email to the agent it was sent to. It reads that from `X-Gm-Original-To`, which Google adds when it reroutes, and from the To line, which it leaves alone. A reply to an email the agent sent before it lost its mailbox has no machine label in the shared mailbox, so it goes to that agent the same way. `gws-<account> gmail` refuses with a pointer to `agent-email`, because Google's own error doesn't say where the mail went. The login check asks for a token instead of the mailbox's profile.
+Only the configured mailboxes have Gmail. An agent's own Google login is a login only, so nobody pays for an inbox it doesn't read, and a new agent needs no setup here. It sends from its folder's mailbox under its own name. Google routes mail for its address (`<agent>@<agent_domain>`) into a shared mailbox, and the listener gives each email to the agent it was sent to, reading that from `X-Gm-Original-To`, which Google adds when it reroutes, and from the To line, which it leaves alone. A reply to an email an agent sent from its own address, before this, has no machine label in the shared mailbox, so it reaches that agent the same way. `gws-<account> gmail` refuses with a pointer to `agent-email`, because Google's own error doesn't say where the mail went. The login check asks such an account for a token rather than a mailbox profile. Settings are read again every pass, so a change reaches a running listener within one pass.
+
+## An email that reached the wrong agent
+
+He sometimes writes to the shared mailbox, or to one agent, about another's work. `agent-email handoff EM-... <agent>` makes it that agent's email: on the machine where that agent is running (asked over ssh), or the home machine if it runs nowhere, the email's record is written again for that agent and delivered like new mail, and the old record goes. The agent reads it as its own, and its answer goes in his thread, so his next reply comes back to it.
 
 ## Answering
 

@@ -28,7 +28,7 @@ def world(tmp_path):
     (root / "config.json").write_text(json.dumps({
         "grants_dir": str(grants), "agent_domain": "example.com",
         "owner_addresses": ["owner@example.com", "owner@example.org"], "default_account": "fc",
-        "owner_accounts": {"fc": None, "side": "owner+agent@example.org"}}))
+        "owner_accounts": {"fc": None, "side": "owner+agent@example.org"}, "mailboxes": {"chief": {"folder": "/brain"}}}))
     (root / "machine.json").write_text(json.dumps({"name": "m5", "gws_bin": str(fake)}))
     for account in ("chief", "fc", "side", "growth-lead"):
         (grants / f"gws-{account}-credentials.json").write_text("{}")
@@ -123,7 +123,7 @@ def test_an_agent_mailbox_gets_the_agents_name(world):
 def test_an_agent_mailbox_with_an_address_of_its_own_uses_it(world):
     cfg = world / ".agent-email" / "config.json"
     s = json.loads(cfg.read_text())
-    s["mailboxes"] = {"money": {"address": "ledger@example.com"}}
+    s["mailboxes"]["money"] = {"address": "ledger@example.com"}
     cfg.write_text(json.dumps(s))
     (world / "grants" / "gws-money-credentials.json").write_text("{}")
     (world / "bin" / "gws-money").symlink_to(SCRIPT)
@@ -158,11 +158,7 @@ def test_an_owner_account_with_an_agent_address_uses_it_only_for_mail_to_the_own
     assert "--from" not in called(world)
 
 
-def test_an_account_with_no_mailbox_refuses_gmail_and_keeps_everything_else(world):
-    cfg = world / ".agent-email" / "config.json"
-    s = json.loads(cfg.read_text())
-    s["no_mailbox"] = ["growth-lead"]
-    cfg.write_text(json.dumps(s))
+def test_an_agents_own_login_refuses_gmail_and_keeps_everything_else(world):
     done = run(world, "gws-growth-lead", "gmail", "+send", "--to", "owner@example.com")
     assert done.returncode == 78 and "agent-email send" in done.stderr and not (world / "called").exists()
     run(world, "gws-growth-lead", "drive", "files", "list")

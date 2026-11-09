@@ -41,15 +41,21 @@ def folder_rule(cwd, s):
     return best
 
 
+def has_mailbox(account, s):
+    """Only the configured mailboxes and the owner's own accounts have Gmail. An agent's own Google login is a login only:
+    Google routes mail for its address into a shared mailbox, and it sends from there."""
+    return account in s["mailboxes"] or account in s["owner_accounts"]
+
+
 def mailbox_for(agent_id, cwd, s=None):
-    """(account, address, where his email goes). An agent with a grant of its own uses its own mailbox: the account named
-    for it, or a configured mailbox that names it, for an agent whose address isn't its name."""
+    """(account, address, where his email goes). An agent sends from a configured mailbox that is its own (the account
+    named for it, or one that names it), and otherwise from its folder's shared mailbox under its own name."""
     s = s or config.settings()
     rule = folder_rule(cwd, s)
     if agent_id and agent_id not in s["owner_accounts"]:
         named = [a for a, box in s["mailboxes"].items() if box.get("agent_id") == agent_id and a not in s["owner_accounts"]]
-        for account in [agent_id] + named:
-            if account not in s["no_mailbox"] and config.grant_path(account, s).exists():
+        for account in ([agent_id] if agent_id in s["mailboxes"] else []) + named:
+            if config.grant_path(account, s).exists():
                 return account, address_of(account, s), rule["to"]
     return rule["account"], address_of(rule["account"], s), rule["to"]
 
@@ -83,36 +89,24 @@ def known_folders(s=None):
 
 
 def mailboxes(s=None):
-    """Every mailbox the system watches: the configured ones, and each agent's own account."""
+    """Every mailbox the system watches: the configured ones. Agents' own addresses have none."""
     s = s or config.settings()
-    folders = agent_folders(s)
-    out = []
-    for account, box in s["mailboxes"].items():
-        if account in s["no_mailbox"]:
-            continue
-        out.append({"account": account, "address": box.get("address") or address_of(account, s),
-                    "own_mailbox": bool(box.get("own_mailbox")), "folder": os.path.expanduser(box["folder"]),
-                    "agent_id": box.get("agent_id") or account})
-    for account in config.accounts(s):
-        if account not in s["owner_accounts"] and account not in s["mailboxes"] and account not in s["no_mailbox"]:
-            # Machines without the agent's repository still watch its mailbox for mail their sessions sent. The user's
-            # home directory stands in for the missing folder, and a session there never counts as the agent running.
-            out.append({"account": account, "address": address_of(account, s), "own_mailbox": False,
-                        "folder": folders.get(account) or os.path.expanduser("~"), "agent_id": account})
-    return out
+    return [{"account": account, "address": box.get("address") or address_of(account, s),
+             "own_mailbox": bool(box.get("own_mailbox")), "folder": os.path.expanduser(box["folder"]),
+             "agent_id": box.get("agent_id") or account}
+            for account, box in s["mailboxes"].items()]
 
 
-def agent_without_mailbox(address, s=None):
-    """(agent id, folder) when an address belongs to an agent whose login has no Gmail, so mail to it is routed into a
-    shared mailbox and still has to reach that agent. None for any other address, or one no agent works from."""
+def agent_for_address(address, s=None):
+    """(agent id, folder) when an address is an agent's own, <agent id>@<agent_domain>, rather than a configured
+    mailbox's. Google routes mail for those addresses into a shared mailbox, and this says whose it is."""
     s = s or config.settings()
     address = (address or "").strip().lower()
-    for account in s["no_mailbox"]:
-        if address_of(account, s).lower() == address:
-            agent = (s["mailboxes"].get(account) or {}).get("agent_id") or account
-            folder = agent_folders(s).get(agent)
-            return (agent, folder) if folder else None
-    return None
+    local, _, domain = address.partition("@")
+    if domain != s["agent_domain"].lower() or any(address_of(a, s).lower() == address for a in s["mailboxes"]):
+        return None
+    folder = agent_folders(s).get(local)
+    return (local, folder) if folder else None
 
 
 def agent_from_address(address, mailbox, s=None):

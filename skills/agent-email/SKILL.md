@@ -16,9 +16,9 @@ agent-email send --subject "<the one thing he should take away>" --body-file bod
 agent-email send --subject "..." --body "Short plain text." -a report.pdf
 ```
 
-The command works out your address and his from who you are, and puts your name on the sender line. `agent-email whoami` shows what it chose. Add `--to` only when your repository's rules send this one somewhere else, such as a team list.
+The command works out your address and his from who you are, and puts your name on the sender line. Most agents send from a shared mailbox, because an agent's own Google login is a login, not an inbox; mail to your own address still reaches you, through that mailbox. `agent-email whoami` shows what it chose. Add `--to` only when your repository's rules send this one somewhere else, such as a team list.
 
-A plain `gws-<account> gmail +send` still works and his reply still comes back, so existing routines don't need changing. The one thing to avoid is sending from one of his own accounts to reach him, because his answer then lands in his own inbox and no agent ever hears it.
+Send and answer only with `agent-email`. A `gws-<your login> gmail` command refuses, since that login has no mailbox, and mail sent from somewhere else, above all from one of his own accounts, takes his answer where no agent hears it.
 
 ## When an [Email] message arrives
 
@@ -51,6 +51,8 @@ If an email sits unread or unanswered for 15 minutes, he gets a note saying so, 
 
 ## Other things you may run into
 
-- **The notice says this session didn't send the email.** He replied to something from before this system, or from a script, and it reached you as that mailbox's agent. Read it with `--full` to see what he was answering. If it belongs to another agent, pass it on through your usual route and tell him in the reply who now has it.
+- **The notice says this session didn't send the email.** He replied to something from before this system, or from a script, and it reached you as that mailbox's agent. Read it with `--full` to see what he was answering.
+- **It's another agent's.** Hand it over with `agent-email handoff EM-1a14d0ee <agent name>`, and don't answer it yourself. It reaches that agent as its own email, wherever it runs, and that agent answers in his thread, so his next reply goes to it too. Pasting his words into another agent's session loses all that: its answer starts a new thread, and he gets two agents' notes about one email.
+- **The notice says another agent handed it to you.** It's yours now: read it with `--full`, act, and answer as you would any email of his.
 - **A new email rather than a reply.** He wrote to your address, which is how he gives instructions by email. The same applies: it's him, read it, act, answer.
 - **Several emails waiting.** One `agent-email read` shows them all. `agent-email inbox` lists what's waiting.

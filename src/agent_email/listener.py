@@ -72,6 +72,9 @@ def notice_for(item, s):
     owner, subject, ref = s["owner"], clean_subject(item.get("subject")), item["ref"]
     if item["kind"] == "new":
         return f'[Email] {owner} wrote to you about "{subject}". Read it: agent-email read {ref}'
+    if item["kind"] == "handoff":
+        return (f'[Email] {owner} wrote about "{subject}" to another agent, which handed it to you. '
+                f"Read it and the conversation: agent-email read {ref} --full")
     if item["kind"] == "unmatched":
         return (f'[Email] {owner} replied to "{subject}", an email this session did not send. '
                 f"Read it and the conversation: agent-email read {ref} --full")
@@ -133,7 +136,12 @@ class Listener:
     # ----- finding mail -----
 
     def sweep(self):
-        # Read again each time, so a login added or removed while this runs is watched or dropped without a restart.
+        # Settings and mailboxes are read again each pass, so a change made while this runs takes effect without a
+        # restart. On November 9 a change read only at start sent the owner's reply to one agent to another.
+        try:
+            self.s = config.settings()
+        except (config.ConfigError, ValueError):
+            log.exception("config.json unreadable; keeping the settings already loaded")
         self.boxes = identity.mailboxes(self.s)
         self.running, self.running_accounts = self.agents_running_here()
         for box in self.watched():
@@ -201,7 +209,7 @@ class Listener:
         headers = msg["payload"]["headers"]
         sent_to = [sender.value(headers, "x-gm-original-to")] + [a for _, a in getaddresses([sender.value(headers, "to") or ""])]
         for address in sent_to:
-            found = identity.agent_without_mailbox(address, self.s)
+            found = identity.agent_for_address(address, self.s)
             if found:
                 return found
         delivered_to = sender.value(headers, "delivered-to") or box["address"]
@@ -355,10 +363,10 @@ class Listener:
         dead = []
         for name in config.accounts(self.s):
             try:
-                if name in self.s["no_mailbox"]:
-                    Account(name, self.s).token()      # no Gmail to ask, so the login itself is the check
-                else:
+                if identity.has_mailbox(name, self.s):
                     self.account(name).profile()
+                else:
+                    self.account(name).token()      # no Gmail to ask, so the login itself is the check
             except GmailError as e:
                 if "invalid_grant" in str(e):
                     dead.append(name)

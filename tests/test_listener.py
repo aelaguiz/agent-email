@@ -220,7 +220,7 @@ def test_a_machine_watches_the_mailboxes_of_the_agents_running_on_it(home, monke
     l.boxes = identity.mailboxes(l.s)
     assert not l.watched()
     l.running, l.running_accounts = l.agents_running_here()
-    assert sorted(b["account"] for b in l.watched()) == ["chief", "growth-lead"]
+    assert sorted(b["account"] for b in l.watched()) == ["chief"]
 
 
 def test_new_mail_reaches_the_agent_it_was_addressed_to(home, box):
@@ -329,14 +329,19 @@ def test_one_mailbox_failing_never_holds_up_the_rest_or_delivery(home):
     class Removed:
         def search(self, query, limit=50):
             raise FileNotFoundError("no such grant")
+    path = config.ROOT / "config.json"
+    cfg = json.loads(path.read_text())
+    cfg["mailboxes"]["money"] = {"address": "ledger@example.com", "agent_id": "cfo-specialist",
+                                 "folder": str(home / "brain/specialists/cfo")}
+    path.write_text(json.dumps(cfg))
     l = make(home)
     l.next_login_check = float("inf")
     other = FakeAccount()
     other.put("n1", s.DEFAULT_SENDER + s.h(Subject="Do this"), ["INBOX"])
-    l.accounts.update({"chief": Removed(), "growth-lead": other, "side": FakeAccount()})
+    l.accounts.update({"chief": Removed(), "money": other, "side": FakeAccount()})
     l.sweep()
     item = only_item()
-    assert item["agent_id"] == "growth-lead" and l.queue.get_nowait() == item["ref"]
+    assert item["agent_id"] == "cfo-specialist" and l.queue.get_nowait() == item["ref"]
 
 
 def test_a_label_that_failed_is_added_on_the_next_pass(home):
@@ -354,6 +359,9 @@ def test_a_label_that_failed_is_added_on_the_next_pass(home):
 class LoginAccount:
     def __init__(self, error=None):
         self.error = error
+
+    def token(self):
+        return self.profile()
 
     def profile(self):
         if self.error:
@@ -402,18 +410,10 @@ def test_only_the_home_machine_checks_logins(home, monkeypatch):
     assert not sent
 
 
-def no_mailbox(*accounts):
-    path = config.ROOT / "config.json"
-    cfg = json.loads(path.read_text())
-    cfg["no_mailbox"] = list(accounts)
-    path.write_text(json.dumps(cfg))
-
-
 @pytest.mark.parametrize("routed", [s.h(X_Gm_Original_To="growth-lead@example.com", Delivered_To="chief@example.com"),
                                     s.h(Delivered_To="chief@example.com")])
-def test_mail_routed_from_an_agent_with_no_mailbox_reaches_that_agent(home, box, routed):
+def test_mail_routed_from_an_agents_own_address_reaches_that_agent(home, box, routed):
     """With the header Google adds when it reroutes, or with only the To line it leaves alone."""
-    no_mailbox("growth-lead")
     l = make(home)
     headers = [h for h in s.DEFAULT_SENDER if h["name"].lower() not in ("to", "delivered-to")] + s.h(To="growth-lead@example.com")
     l.fake.put("n1", routed + headers + s.h(Subject="Do this"), ["INBOX"])
@@ -422,8 +422,7 @@ def test_mail_routed_from_an_agent_with_no_mailbox_reaches_that_agent(home, box,
     assert item["agent_id"] == "growth-lead" and item["folder"].endswith("pods/growth/lead")
 
 
-def test_an_agent_with_no_mailbox_is_checked_by_its_login_alone(home, monkeypatch):
-    no_mailbox("growth-lead")
+def test_an_agents_own_login_is_checked_by_its_login_alone(home, monkeypatch):
     l = make(home)
     checked = []
     monkeypatch.setattr(listener.Account, "token", lambda self: checked.append(self.name) or "t")
@@ -432,3 +431,15 @@ def test_an_agent_with_no_mailbox_is_checked_by_its_login_alone(home, monkeypatc
     l.boxes = identity.mailboxes(l.s)
     l.check_logins()
     assert checked == ["growth-lead"]
+
+
+def test_a_setting_changed_while_it_runs_takes_effect_at_the_next_sweep(home):
+    """On November 9 a change read only at start sent the owner's reply to one agent to another."""
+    l = make(home)
+    l.next_login_check = float("inf")
+    path = config.ROOT / "config.json"
+    cfg = json.loads(path.read_text())
+    cfg["mailboxes"]["money"] = {"address": "ledger@example.com", "agent_id": "cfo-specialist", "folder": str(home / "brain")}
+    path.write_text(json.dumps(cfg))
+    l.sweep()
+    assert "money" in {b["account"] for b in l.boxes}

@@ -3,8 +3,8 @@ import json
 from agent_email import config, identity
 
 
-def test_a_grant_named_for_the_agent_is_its_mailbox(home):
-    assert identity.mailbox_for("growth-lead", str(home / "brain/pods/growth/lead"))[:2] == ("growth-lead", "growth-lead@example.com")
+def test_an_agents_own_login_is_not_a_mailbox_so_it_sends_from_its_folders(home):
+    assert identity.mailbox_for("growth-lead", str(home / "brain/pods/growth/lead"))[:2] == ("chief", "chief@example.com")
 
 
 def test_everyone_else_uses_their_folders_default(home):
@@ -38,11 +38,17 @@ def test_an_owner_account_uses_its_agent_address(home):
     assert identity.mailbox_for(None, str(home / "cj")) == ("side", "owner+agent@example.net", "owner@example.net")
 
 
-def test_every_agent_account_is_watched_and_the_owners_are_not(home):
+def test_only_the_configured_mailboxes_are_watched(home):
     boxes = {b["account"]: b for b in identity.mailboxes()}
-    assert set(boxes) == {"chief", "side", "growth-lead"}
-    assert boxes["growth-lead"]["folder"].endswith("pods/growth/lead")
+    assert set(boxes) == {"chief", "side"}
     assert boxes["side"]["own_mailbox"]
+
+
+def test_an_agents_own_address_names_it_and_a_mailboxs_does_not(home):
+    assert identity.agent_for_address("Growth-Lead@example.com")[1].endswith("pods/growth/lead")
+    assert identity.agent_for_address("chief@example.com") is None
+    assert identity.agent_for_address("growth-lead@elsewhere.com") is None
+    assert identity.agent_for_address("nobody@example.com") is None
 
 
 def test_a_plus_tag_names_an_agent(home):
@@ -50,14 +56,3 @@ def test_a_plus_tag_names_an_agent(home):
     assert identity.agent_from_address("chief+cfo-specialist@example.com", chief)[1].endswith("specialists/cfo")
     assert identity.agent_from_address("chief@example.com", chief)[0] == "chief"
     assert identity.agent_from_address("chief+nobody@example.com", chief) == ("nobody", chief["folder"])
-
-
-def test_an_agent_without_a_mailbox_sends_from_its_folders_and_isnt_watched(home):
-    path = config.ROOT / "config.json"
-    s = json.loads(path.read_text())
-    s["no_mailbox"] = ["growth-lead"]
-    path.write_text(json.dumps(s))
-    assert identity.mailbox_for("growth-lead", str(home / "brain/pods/growth/lead"))[:2] == ("chief", "chief@example.com")
-    assert "growth-lead" not in {b["account"] for b in identity.mailboxes()}
-    assert identity.agent_without_mailbox("Growth-Lead@example.com")[1].endswith("pods/growth/lead")
-    assert identity.agent_without_mailbox("chief@example.com") is None

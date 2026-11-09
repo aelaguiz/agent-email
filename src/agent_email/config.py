@@ -27,7 +27,6 @@ DEFAULTS = {
     "agent_repos": [],
     "folders": [],
     "mailboxes": {},
-    "no_mailbox": [],                # accounts whose Google login has no Gmail; their mail is routed into a shared mailbox
     "owner_accounts": {},
 }
 

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from approvals import transcripts
+
 from . import config, identity, message, records, sender
 from .google import Account, GmailError
 
@@ -153,7 +155,57 @@ def cmd_read(a):
     for n, item in enumerate(items):
         if n:
             print("\n" + "=" * 40 + "\n")
-        show(item, a.full or item["kind"] == "unmatched")
+        show(item, a.full or item["kind"] in ("unmatched", "handoff"))
+
+
+def runs_here(folder):
+    return any(cwd and os.path.realpath(cwd) == os.path.realpath(folder) for _, _, cwd in transcripts.live_sessions("claude"))
+
+
+def cmd_running(a):
+    folder = identity.agent_folders().get(a.agent)
+    print("yes" if folder and runs_here(folder) else "no")
+
+
+def cmd_adopt(a):
+    """The receiving end of a handoff: the email, now this machine's to deliver to the agent it was handed to."""
+    item = json.loads(sys.stdin.read())
+    folder = identity.agent_folders().get(item["agent_id"])
+    if not folder:
+        sys.exit(f"No agent named {item['agent_id']} on this machine.")
+    records.save_inbound({**item, "folder": folder})
+
+
+def cmd_handoff(a):
+    """An email that reached the wrong agent goes to the right one, on the machine where that agent runs (else the home
+    machine), as an email of its own: it reads it, and its answer goes in his thread and brings his next reply back."""
+    s = config.settings()
+    item = inbound_or_die(a.ref)
+    folders = identity.agent_folders(s)
+    if a.agent not in folders:
+        sys.exit(f"No agent named {a.agent}; agents are named in each repository's .agent-identities.json.")
+    moved = {**item, "agent_id": a.agent, "kind": "handoff", "reach": None, "sent_id": None, "attempts": 0,
+             "next_try": records.iso(), "notified_at": None, "read_at": None, "answered_at": None, "warned": False,
+             "handed_from": item.get("agent_id")}
+    here = config.machine()["name"]
+    target = here if runs_here(folders[a.agent]) else None
+    for name, route in s["machines"].items():
+        if target or name == here:
+            continue
+        r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", route,
+                            f"$HOME/.local/bin/agent-email running {a.agent}"], capture_output=True, text=True)
+        if r.stdout.strip() == "yes":
+            target = name
+    target = target or s["home_machine"]
+    if target == here:
+        records.save_inbound({**moved, "folder": folders[a.agent]})
+    else:
+        r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", s["machines"][target],
+                            "$HOME/.local/bin/agent-email adopt"], input=json.dumps(moved), capture_output=True, text=True)
+        if r.returncode:
+            sys.exit(f"Couldn't hand it to {target}: {(r.stderr or r.stdout).strip()[-200:]}")
+        records.inbound_path(item["ref"]).unlink(missing_ok=True)
+    print(f"Handed to {a.agent}, on {target}. It reads it as its own email, and its answer goes in his thread.")
 
 
 def cmd_inbox(a):
@@ -202,11 +254,11 @@ def check_accounts(s):
     rows = []
     for name in config.accounts(s):
         try:
-            if name in s["no_mailbox"]:
+            if identity.has_mailbox(name, s):
+                rows.append({"account": name, "address": Account(name, s).profile()["emailAddress"], "ok": True})
+            else:
                 Account(name, s).token()
                 rows.append({"account": name, "address": identity.address_of(name, s), "ok": True})
-            else:
-                rows.append({"account": name, "address": Account(name, s).profile()["emailAddress"], "ok": True})
         except (GmailError, KeyError, ValueError, OSError) as e:
             rows.append({"account": name, "address": None, "ok": False, "error": str(e)[:160]})
     return rows
@@ -318,6 +370,14 @@ def main():
     q.add_argument("--full", action="store_true", help="include the rest of the conversation")
     q.set_defaults(fn=cmd_read)
     sub.add_parser("inbox", help="what's waiting for this session").set_defaults(fn=cmd_inbox)
+    q = sub.add_parser("handoff", help="give an email that reached you to the agent it's for")
+    q.add_argument("ref")
+    q.add_argument("agent", help="the agent's name, as in .agent-identities.json")
+    q.set_defaults(fn=cmd_handoff)
+    q = sub.add_parser("running", help="whether an agent has a session on this machine (used by handoff)")
+    q.add_argument("agent")
+    q.set_defaults(fn=cmd_running)
+    sub.add_parser("adopt", help="take a handed-off email from standard input (used by handoff)").set_defaults(fn=cmd_adopt)
     sub.add_parser("whoami", help="this agent's name and addresses").set_defaults(fn=cmd_whoami)
     q = sub.add_parser("accounts", help="every account and whether its login works")
     q.add_argument("--fleet", action="store_true", help="on every machine")
