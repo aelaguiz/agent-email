@@ -1,5 +1,5 @@
 #!/bin/sh
-# Put agent-email on the other machines: copy the grants and config, bring the Google CLI and Herdr up to what this
+# Put agent-email on the other machines: copy the grants, bring the Google CLI and Herdr up to what this
 # machine has, install everything from the public repo, and point the gws commands at it. Safe to run again.
 # Usage: scripts/rollout.sh <name=ssh-route> ...   Each name is the machine's fixed name, such as studio=me@studio.
 set -u
@@ -22,7 +22,8 @@ for pair in "$@"; do
   # Logins and config.
   ssh $ssh_opts "$route" "mkdir -p ~/$remote_grants ~/.agent-email ~/.local/bin ~/.local/share/agent-email && chmod 700 ~/$remote_grants ~/.agent-email" || { fail=1; continue; }
   rsync -a -e "ssh $ssh_opts" --include='gws-*-credentials.json' --exclude='*' "$grants/" "$route:$remote_grants/" || { echo "grants failed"; fail=1; continue; }
-  rsync -a -e "ssh $ssh_opts" "$HOME/.agent-email/config.json" "$route:.agent-email/config.json" || { fail=1; continue; }
+  # config.json is not copied: devcluster's agent-email-settings item puts the config repo's copy on every machine,
+  # and a copy from here would fight it until the next sync (November 9, 2026: 19 fixer runs).
 
   # The Google CLI, unless this machine already has the right version. An older one lacks what the commands use.
   gws_bin=$(ssh $ssh_opts "$route" "$tools"'; python3 - <<PY 2>/dev/null
