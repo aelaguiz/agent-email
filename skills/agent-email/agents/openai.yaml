@@ -1,7 +1,7 @@
 interface:
   display_name: "Agent email"
   short_description: "Email Amir and hold a conversation with him by email"
-  default_prompt: "Use $agent-email to email Amir, or to read and answer the email he just sent this session."
+  default_prompt: "Use $agent-email to email Amir in a shape that reads on his phone (the news in the subject and first line, a label, one screen), or to read and answer the email he just sent this session."
 
 policy:
   allow_implicit_invocation: true

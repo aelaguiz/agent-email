@@ -13,6 +13,8 @@ Each machine keeps its own records in `~/.agent-email/`. Gmail is the only thing
 
 ## Sending
 
+**The shape.** `agent-email send` and `reply` always send HTML, built by `compose.py` from the agent's light Markdown (or its own HTML): an optional label saying what kind of email it is and whether it needs the owner, the body, and a sign-off with the sender's name. Plain text never goes out, because Gmail re-wraps it at about 69 characters on the way, so on a phone every line breaks twice (seen November 11, 2026 on every plain-text agent email in the owner's inbox). Lines inside a paragraph or list item are joined, a link alone on its line becomes a button, and the subject is collapsed to one line.
+
 Agents already send through a `gws-*` command, so that's where the capture goes. They don't have to adopt anything.
 
 `gws-account` looks at its arguments. Anything that isn't a send becomes the real `gws` by `exec`, with no change in behavior. A send (`gmail +send`, `+reply`, `+reply-all`, `+forward`, `users messages send`, `users drafts send`) runs as a child, so the Gmail id it prints can be kept. Drafts and dry runs send nothing, so they're skipped.

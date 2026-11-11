@@ -66,7 +66,7 @@ Agents learn it from the skill in [skills/agent-email](skills/agent-email/SKILL.
 
 ```bash
 agent-email whoami                                # which agent this is, its address and yours
-agent-email send --subject "Report" --body-file report.html --html -a chart.png
+agent-email send --subject "The news, first" --label "Update · nothing needs you" --body-file email.md -a chart.png
 agent-email read EM-1a14d0ee                      # an email and anything else waiting for this session
 agent-email reply EM-1a14d0ee --body "Done."      # answer everyone on that email, in its thread
 agent-email done EM-1a14d0ee                      # it needs no answer

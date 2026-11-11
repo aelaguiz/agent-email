@@ -8,7 +8,7 @@ from pathlib import Path
 
 from approvals import transcripts
 
-from . import config, identity, message, records, sender
+from . import compose, config, identity, message, records, sender
 from .google import Account, GmailError
 
 FROM_LABEL = "agent-email/from-"
@@ -21,6 +21,15 @@ def gws(account):
 
 def body_of(a):
     return a.body if a.body is not None else Path(a.body_file).read_text()
+
+
+def signer(me=None):
+    return os.environ.get("GIT_AUTHOR_NAME") or (me or identity.session()).get("agent")
+
+
+def formatted(a, me=None):
+    """Every email goes out as formatted HTML in one shape, never as plain text (see compose)."""
+    return compose.email(body_of(a), is_html=a.html, label=a.label, signer=signer(me))
 
 
 def sender_flag(address):
@@ -39,10 +48,9 @@ def cmd_send(a):
     s = config.settings()
     me = identity.session()
     account, address, to = identity.mailbox_for(me["agent_id"], me["cwd"], s)
-    args = [gws(account), "gmail", "+send", "--to", a.to or to, "--subject", a.subject, "--body", body_of(a)]
+    args = [gws(account), "gmail", "+send", "--to", a.to or to, "--subject", compose.subject(a.subject),
+            "--body", formatted(a, me), "--html"]
     args += sender_flag(address)
-    if a.html:
-        args.append("--html")
     for c in a.cc or []:
         args += ["--cc", c]
     for f in a.attach or []:
@@ -70,11 +78,9 @@ def cmd_reply(a):
     address = item["mailbox"]
     to, cc = recipients(item, Account(item["account"], s).metadata(item["gmail_id"])["payload"]["headers"])
     args = [gws(item["account"]), "gmail", "+reply", "--message-id", item["gmail_id"], "--to", ",".join(to),
-            "--body", body_of(a)] + sender_flag(address)
+            "--body", formatted(a), "--html"] + sender_flag(address)
     if cc:
         args += ["--cc", ",".join(cc)]
-    if a.html:
-        args.append("--html")
     for f in a.attach or []:
         args += ["-a", f]
     code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
@@ -390,7 +396,8 @@ def main():
         g = q.add_mutually_exclusive_group(required=True)
         g.add_argument("--body")
         g.add_argument("--body-file")
-        q.add_argument("--html", action="store_true")
+        q.add_argument("--html", action="store_true", help="the body is HTML; otherwise it is light Markdown")
+        q.add_argument("--label", help='what kind of email it is and whether it needs him, e.g. "Problem · fixed tonight"')
         q.add_argument("-a", "--attach", action="append")
 
     q = sub.add_parser("send", help="email the owner from this agent's address")
