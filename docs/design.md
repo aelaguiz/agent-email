@@ -59,6 +59,8 @@ A failure retries after 5 minutes, then hourly after three failures, with one no
 
 If a session already has a notice it hasn't acted on, a second reply doesn't send another: one `agent-email read` shows everything waiting for that session.
 
+**A session started again with none of the old one's history** isn't a moved copy or a continuation, so delivery can't tell it is the same agent, and a reply to the old session's email would resume the old session beside it. A pod restored from a save starts every member that way (November 8, 2026). So whatever restarts the agent runs `agent-email repoint <old> <new>` on the machine where the new session runs: every send record there naming the old session, and every reply it hasn't been told of yet, then names the new one (its folder and pane read from the running session), with the old id in `earlier_ids`. It refuses when the new session isn't running there or the old one still is. psbrain's `./pod restore` runs it for each restored member, beside approvals' `approvals repoint`.
+
 ## New mail
 
 A new email is an instruction to an agent, so it goes where that agent is working. Agents run on different machines, and sending all their new mail to the home machine started a second copy of the agent there, without the work the first one had open.

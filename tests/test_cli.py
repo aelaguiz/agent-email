@@ -1,3 +1,4 @@
+import pytest
 import samples as s
 from agent_email import cli
 
@@ -59,3 +60,24 @@ def test_a_handoff_goes_to_the_machine_the_agent_runs_on(home, monkeypatch):
     adopted = _json.loads(next(i for c, i in calls if c.endswith("adopt")))
     assert adopted["agent_id"] == "growth-lead" and adopted["kind"] == "handoff"
     assert records.load_inbound("EM-x1") is None
+
+
+def test_repoint_sends_replies_for_a_saved_session_to_the_restored_one(home, monkeypatch, capsys):
+    from approvals import router, transcripts
+    from agent_email import records
+    monkeypatch.setattr(transcripts, "live_sessions", lambda runtime: [(7, "new", "/pods/ai/lead")] if runtime == "claude" else [])
+    monkeypatch.setattr(router, "find_pane_for_pid", lambda pid: ("pods", "w9:p1") if pid == 7 else None)
+    old = {"runtime": "claude", "session_id": "old", "cwd": "/pods/ai/lead", "herdr_pane": "w4:p1", "agent": "AI lead"}
+    records.write(records.sent_path("ai-lead", "g1"), {"gmail_id": "g1", "reach": dict(old)})
+    records.write(records.sent_path("ai-lead", "g2"), {"gmail_id": "g2", "reach": dict(old, session_id="other")})
+    records.save_inbound({"ref": "EM-r1", "reach": dict(old), "notified_at": None, "read_at": None})
+    records.save_inbound({"ref": "EM-r2", "reach": dict(old), "notified_at": records.iso(), "read_at": records.iso()})
+    cli.cmd_repoint(type("A", (), {"old": "old", "new": "new"}))
+    r = records.load_sent("ai-lead", "g1")["reach"]
+    assert (r["session_id"], r["herdr_pane"], r["agent"], r["earlier_ids"]) == ("new", "w9:p1", "AI lead", ["old"])
+    assert records.load_sent("ai-lead", "g2")["reach"]["session_id"] == "other"
+    assert records.load_inbound("EM-r1")["reach"]["session_id"] == "new"
+    assert records.load_inbound("EM-r2")["reach"]["session_id"] == "old"     # already read by the old session
+    assert "1 sent emails and 1 waiting" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        cli.cmd_repoint(type("A", (), {"old": "new", "new": "old"}))      # "old" isn't running here

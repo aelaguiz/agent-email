@@ -73,6 +73,7 @@ agent-email done EM-1a14d0ee                      # it needs no answer
 agent-email inbox                                 # what's waiting
 agent-email accounts --fleet                      # every account, its address, and whether it works on each machine
 agent-email doctor                                # this machine's setup
+agent-email repoint <old session> <new session>   # a launcher that starts an agent again in a fresh session (a pod restore) hands it the old one's replies
 ```
 
 To give an agent an instruction, email its address. An agent with its own account has one. Any other agent can be reached through a shared mailbox with a plus address: `chief+cfo-specialist@example.com` goes to the agent named `cfo-specialist`.

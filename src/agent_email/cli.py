@@ -176,6 +176,47 @@ def cmd_adopt(a):
     records.save_inbound({**item, "folder": folder})
 
 
+def running(session_id):
+    """(runtime, folder, Herdr session, pane) of a session running on this machine, or None."""
+    from approvals import router
+    for runtime in ("claude", "codex"):
+        for pid, sid, cwd in transcripts.live_sessions(runtime):
+            if sid == session_id:
+                return (runtime, cwd, *(router.find_pane_for_pid(pid) or (None, None)))
+    return None
+
+
+def cmd_repoint(a):
+    """Replies to every email session OLD sent, and any it hasn't been told of yet, go to session NEW instead. For a
+    launcher that starts an agent again in a fresh session with none of the old one's history, as a pod restore does,
+    which the delivery code can't recognize as the same agent; it would resume the old session beside the new one."""
+    new = running(a.new)
+    if not new:
+        sys.exit(f"Session {a.new} isn't running on this machine, so nothing was changed.")
+    if running(a.old):
+        sys.exit(f"Session {a.old} is still running, so its replies stay with it; nothing was changed.")
+    runtime, cwd, hs, pane = new
+
+    def moved(reach):
+        ids = [i for i in reach.get("earlier_ids", []) if i not in (a.new, a.old)] + [a.old]
+        return {**reach, "runtime": runtime, "session_id": a.new, "cwd": cwd or reach.get("cwd"), "herdr_session": hs,
+                "herdr_pane": pane, "herdr_workspace": pane.split(":")[0] if pane else None, "herdr_tab": None,
+                "earlier_ids": ids}
+    sent = waiting = 0
+    with records.locked():
+        for path in config.SENT.glob("*/*.json"):
+            rec = json.loads(path.read_text())
+            if (rec.get("reach") or {}).get("session_id") == a.old:
+                records.write(path, {**rec, "reach": moved(rec["reach"])})
+                sent += 1
+        for item in records.all_inbound():
+            if not item["notified_at"] and not item["read_at"] and (item.get("reach") or {}).get("session_id") == a.old:
+                records.write(records.inbound_path(item["ref"]), {**item, "reach": moved(item["reach"])})
+                waiting += 1
+    print(f"Replies to {sent} sent emails and {waiting} waiting now go to session {a.new}." if sent or waiting else
+          f"No email here was sent from session {a.old}.")
+
+
 def cmd_handoff(a):
     """An email that reached the wrong agent goes to the right one, on the machine where that agent runs (else the home
     machine), as an email of its own: it reads it, and its answer goes in his thread and brings his next reply back."""
@@ -378,6 +419,10 @@ def main():
     q.add_argument("agent")
     q.set_defaults(fn=cmd_running)
     sub.add_parser("adopt", help="take a handed-off email from standard input (used by handoff)").set_defaults(fn=cmd_adopt)
+    q = sub.add_parser("repoint", help="send replies meant for session OLD to session NEW, which has taken over its work (a pod restore runs this)")
+    q.add_argument("old")
+    q.add_argument("new")
+    q.set_defaults(fn=cmd_repoint)
     sub.add_parser("whoami", help="this agent's name and addresses").set_defaults(fn=cmd_whoami)
     q = sub.add_parser("accounts", help="every account and whether its login works")
     q.add_argument("--fleet", action="store_true", help="on every machine")
