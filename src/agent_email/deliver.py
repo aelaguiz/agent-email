@@ -53,15 +53,14 @@ def accept_trust(h, pane):
 
 
 def start_session(item, notice, sleep=time.sleep, clock=time.monotonic):
-    """A new session in the agent's folder, opened in its own tab, with the notice as its first message."""
+    """A new session in the agent's folder, opened in its own workspace, with the notice as its first message."""
     _use_our_settings()
     session = herdr_session()
     ensure_herdr(session)
     h = router.Herdr(session)
     folder = item["folder"]
     label = f"email-{item.get('agent_id') or 'agent'}"[:40]
-    workspaces = h.workspaces()
-    pane, tab, workspace = h.new_tab(workspaces[0], folder, label) if workspaces else h.new_workspace(folder, "email")
+    pane, tab, workspace = h.new_workspace(folder, label)
     command = f"cd {shlex.quote(folder)} && AGENT_ID={shlex.quote(item.get('agent_id') or '')} {config.settings()['start_command']}"
     h.run_cmd(pane, command)
     start = clock()

@@ -71,7 +71,7 @@ A new email is an instruction to an agent, so it goes where that agent is workin
 
 **Where the agent is running nowhere, the home machine takes it,** 90 seconds on (`elsewhere_wait_seconds`), unless the label shows that another machine took it. That gives every listener three passes to see the email.
 
-Either way, the email goes to the one Claude session in the agent's folder on that machine, if there is exactly one. Otherwise a new session starts there, in a tab of its own, and its id is saved before the notice goes in, so a retry doesn't start a second one.
+Either way, the email goes to the one Claude session in the agent's folder on that machine, if there is exactly one. Otherwise a new session starts there, in a workspace of its own labeled `email-<agent>`, and its id is saved before the notice goes in, so a retry doesn't start a second one.
 
 Two machines running the same agent at once could both take the same email if they look within the same few seconds. Each checks the label first, which closes most of that gap.
 
