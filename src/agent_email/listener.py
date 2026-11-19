@@ -114,10 +114,11 @@ class Listener:
         return self.accounts[name]
 
     def agents_running_here(self):
-        """Agent folders with a Claude session running on this machine, and every mailbox mail for those agents comes
+        """Agent folders with a session running on this machine, and every mailbox mail for those agents comes
         into: the agent's own, and the shared one for its folder, which takes plus addresses."""
         known = identity.known_folders(self.s)
-        folders = {os.path.realpath(cwd) for _, _, cwd in transcripts.live_sessions("claude")
+        folders = {os.path.realpath(cwd) for runtime in deliver.RUNTIMES
+                   for _, _, cwd in transcripts.live_sessions(runtime)
                    if cwd and os.path.realpath(cwd) in known}
         accounts = set()
         for f in folders:
@@ -301,6 +302,40 @@ class Listener:
             finally:
                 self.queued.discard(ref)
 
+    def record_moves(self, moves, new_reach):
+        """Follow a session move (such as `aim codex resume-fresh` minting a new thread id) across sent and waiting
+        inbound records so retries and later replies reach the new session instead of cloning the old one again."""
+        moved_ids = {old: new for old, new in moves if old and new and old != new}
+        if not moved_ids:
+            return
+
+        def final_id(sid):
+            seen = {sid}
+            cur = moved_ids[sid]
+            while cur in moved_ids and cur not in seen:
+                seen.add(cur)
+                cur = moved_ids[cur]
+            return cur
+
+        def updated(reach, old, new):
+            ids = [i for i in reach.get("earlier_ids") or [] if i not in (old, new)] + [old]
+            return {**reach, **{k: v for k, v in new_reach.items()
+                                if k in ("herdr_session", "herdr_pane", "herdr_workspace", "herdr_tab") and v is not None},
+                    "session_id": new, "earlier_ids": ids}
+
+        with records.locked():
+            if config.SENT.is_dir():
+                for path in config.SENT.glob("*/*.json"):
+                    rec = json.loads(path.read_text())
+                    sid = (rec.get("reach") or {}).get("session_id")
+                    if sid in moved_ids:
+                        records.write(path, {**rec, "reach": updated(rec["reach"], sid, final_id(sid))})
+            for item in records.all_inbound():
+                sid = (item.get("reach") or {}).get("session_id")
+                if not item["notified_at"] and not item["read_at"] and sid in moved_ids:
+                    records.write(records.inbound_path(item["ref"]),
+                                  {**item, "reach": updated(item["reach"], sid, final_id(sid))})
+
     def deliver_one(self, ref):
         item = records.load_inbound(ref)
         if item["notified_at"]:
@@ -311,12 +346,25 @@ class Listener:
             return
         result = deliver.deliver(item, notice_for(item, self.s))
         log.info("%s: %s (%s)", ref, result.status, result.reason)
+        changes = {}
+        merged = None
+        if result.reach or result.moves:
+            cur = records.load_inbound(ref).get("reach") or {}
+            merged = {**cur, **result.reach}
+            if result.moves:
+                ids = list(merged.get("earlier_ids") or [])
+                for old, _ in result.moves:
+                    if old and old != merged.get("session_id") and old not in ids:
+                        ids.append(old)
+                merged["earlier_ids"] = ids
+            changes["reach"] = merged
         if result.status == "delivered":
-            changes = {"notified_at": records.iso()}
-            if result.reach:
-                changes["reach"] = {**records.load_inbound(ref).get("reach", {}), **result.reach}
+            changes["notified_at"] = records.iso()
+        if changes:
             records.update_inbound(ref, **changes)
-        else:
+        if result.moves and merged:
+            self.record_moves(result.moves, merged)
+        if result.status != "delivered":
             self.after_failure(ref, result.reason)
 
     def after_failure(self, ref, reason):

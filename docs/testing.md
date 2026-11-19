@@ -34,7 +34,8 @@ Keep `~/workspace/agent-email/tests/live` in `agent_repos` on every machine, so 
 | `new_mail` | A new email starts a session in the agent's folder; a second reaches that running session; a planted instruction in forwarded text is not obeyed |
 | `unmatched` | A reply to an email no session sent reaches the mailbox's agent after the wait, told it isn't the sender |
 | `two_sessions` | Two sessions in one conversation, each getting the reply to its own email |
-| `codex` | An open and a closed Codex session |
+| `codex` | An open and a closed Codex session (`aim codex resume-fresh` persists the moved thread id across sent and inbound records) |
+| `agy` | An open and a closed Antigravity session (preserving identity env, model and effort) |
 | `fleet <machine>` | A session on another machine sends and closes, and a reply resumes it there |
 | `fleet <machine> off` | The same with that machine's listener stopped: the reply waits, no other machine takes it, and it arrives when the listener is back |
 | `own_address` | Mail to an agent's own address, routed by Google into the shared mailbox, reaches that agent as new mail (needs `email-test@` in the domain's recipient address map) |

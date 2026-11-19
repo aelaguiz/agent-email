@@ -1,9 +1,57 @@
 """Which agent this is, which mailbox it sends from, and which folder an agent works in."""
 import json
 import os
+import shlex
+import subprocess
 from pathlib import Path
 
 from . import config
+
+IDENTITY_ENV = (
+    "BASECAMP_PROFILE", "APPROVALS_FROM", "AGENT_ID",
+    "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+)
+
+
+def _agy_ancestor_model_effort():
+    """(--model, --effort) from an ancestor `agy` process if launched with them, else (None, None)."""
+    pid = os.getppid()
+    for _ in range(8):
+        if pid <= 1:
+            break
+        try:
+            out = subprocess.run(["ps", "-o", "ppid=,command=", "-p", str(pid)],
+                                 capture_output=True, text=True, timeout=2).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            break
+        if not out:
+            break
+        ppid_s, _, cmd = out.partition(" ")
+        try:
+            args = shlex.split(cmd)
+        except ValueError:
+            args = cmd.split()
+        if args and os.path.basename(args[0]) == "agy":
+            model = effort = None
+            i = 1
+            while i < len(args):
+                tok = args[i]
+                if tok == "--model" and i + 1 < len(args):
+                    model, i = args[i + 1], i + 2
+                elif tok.startswith("--model="):
+                    model, i = tok.split("=", 1)[1], i + 1
+                elif tok == "--effort" and i + 1 < len(args):
+                    effort, i = args[i + 1], i + 2
+                elif tok.startswith("--effort="):
+                    effort, i = tok.split("=", 1)[1], i + 1
+                else:
+                    i += 1
+            return model, effort
+        try:
+            pid = int(ppid_s)
+        except ValueError:
+            break
+    return None, None
 
 
 def session():
@@ -13,9 +61,11 @@ def session():
         runtime, sid = "claude", env["CLAUDE_CODE_SESSION_ID"]
     elif env.get("CODEX_THREAD_ID"):
         runtime, sid = "codex", env["CODEX_THREAD_ID"]
+    elif env.get("ANTIGRAVITY_CONVERSATION_ID"):
+        runtime, sid = "agy", env["ANTIGRAVITY_CONVERSATION_ID"]
     else:
         runtime, sid = None, None
-    return {
+    out = {
         "agent": env.get("GIT_AUTHOR_NAME") or env.get("AGENT_ID") or Path.cwd().name,
         "agent_id": env.get("AGENT_ID"),
         "runtime": runtime,
@@ -26,6 +76,21 @@ def session():
         "herdr_tab": env.get("HERDR_TAB_ID"),
         "herdr_pane": env.get("HERDR_PANE_ID"),
     }
+    if runtime in ("codex", "agy"):
+        saved_env = {k: env[k] for k in IDENTITY_ENV if env.get(k)}
+        if saved_env:
+            out["env"] = saved_env
+        shim = os.path.expanduser("~/.local/share/agent-identity/bin")
+        path_entries = (env.get("PATH") or "").split(os.pathsep)
+        if any(os.path.realpath(os.path.expanduser(p)) == os.path.realpath(shim) for p in path_entries if p):
+            out["agent_identity_bin"] = True
+        if runtime == "agy":
+            model, effort = _agy_ancestor_model_effort()
+            if model:
+                out["model"] = model
+            if effort:
+                out["effort"] = effort
+    return out
 
 
 def folder_rule(cwd, s):

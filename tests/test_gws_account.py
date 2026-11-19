@@ -163,3 +163,12 @@ def test_an_agents_own_login_refuses_gmail_and_keeps_everything_else(world):
     assert done.returncode == 78 and "agent-email send" in done.stderr and not (world / "called").exists()
     run(world, "gws-growth-lead", "drive", "files", "list")
     assert called(world) == "drive files list"
+
+
+def test_antigravity_session_gets_the_agents_name_unless_generic(world):
+    run(world, "gws-chief", "gmail", "+send", "--to", "owner@example.com",
+        ANTIGRAVITY_CONVERSATION_ID="conv-1", GIT_AUTHOR_NAME="Tech lead (agent)")
+    assert called(world).endswith("--from Tech lead (agent) <chief@example.com>")
+    run(world, "gws-chief", "gmail", "+send", "--to", "owner@example.com",
+        ANTIGRAVITY_CONVERSATION_ID="conv-1", GIT_AUTHOR_NAME="Antigravity (agent)")
+    assert "--from" not in called(world)

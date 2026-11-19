@@ -165,7 +165,10 @@ def cmd_read(a):
 
 
 def runs_here(folder):
-    return any(cwd and os.path.realpath(cwd) == os.path.realpath(folder) for _, _, cwd in transcripts.live_sessions("claude"))
+    target = os.path.realpath(folder)
+    return any(cwd and os.path.realpath(cwd) == target
+               for runtime in ("claude", "codex", "agy")
+               for _, _, cwd in transcripts.live_sessions(runtime))
 
 
 def cmd_running(a):
@@ -185,7 +188,7 @@ def cmd_adopt(a):
 def running(session_id):
     """(runtime, folder, Herdr session, pane) of a session running on this machine, or None."""
     from approvals import router
-    for runtime in ("claude", "codex"):
+    for runtime in ("claude", "codex", "agy"):
         for pid, sid, cwd in transcripts.live_sessions(runtime):
             if sid == session_id:
                 return (runtime, cwd, *(router.find_pane_for_pid(pid) or (None, None)))

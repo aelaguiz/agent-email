@@ -55,7 +55,7 @@ The input box gets one short fixed line, however long the email is:
 
 The email's own text never goes there. Typing long text into a terminal is fragile, and attachments can't go that way at all. The agent reads the email itself, which also proves it opened it.
 
-Finding the session is approvals' `router.deliver`, imported rather than copied. It checks the transcript first, so a restart can't send twice. It looks for the session in its recorded pane and then in every pane, types the line, and confirms it in the transcript. A closed session is resumed through AI Manager in a new Herdr tab. For Claude it also skips a session stopped at a usage limit and follows moved copies and continuations. Codex sessions get the open and closed cases.
+Finding the session is approvals' `router.deliver`, imported rather than copied. It checks the transcript first, so a restart can't send twice. It looks for the session in its recorded pane and then in every pane, types the line, and confirms it in the transcript. A closed session is resumed in a new Herdr tab (`aim claude resume`, `aim codex resume-fresh` or `agy --conversation`). For Claude it also skips a session stopped at a usage limit and follows moved copies and continuations. Codex and Antigravity sessions get the open and closed cases.
 
 A failure retries after 5 minutes, then hourly after three failures, with one note to the owner.
 

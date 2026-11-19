@@ -12,6 +12,7 @@ from . import config, records
 READY_SECONDS = 180
 CONFIRM_SECONDS = 90
 TRUST_PROMPT = "Yes, I trust this folder"
+RUNTIMES = ("claude", "codex", "agy")
 
 
 def _use_our_settings():
@@ -38,14 +39,27 @@ def tell_session(item, notice):
     reach = dict(item["reach"])
     reach["host"] = approvals.config.hostname()      # ownership is already settled, so this is always this machine
     reach["tab_label"] = "email"
-    return router.deliver(reach, notice, item["ref"], request_id=item.get("sent_id") or item["ref"])
+    return router.deliver(reach, notice, item["ref"], request_id=item.get("sent_id") or item["ref"],
+                          needle=f"agent-email read {item['ref']}")
 
 
 def running_session(folder):
-    """The one Claude session running in this folder, or None if there are none or several."""
-    found = [(sid, cwd) for _, sid, cwd in transcripts.live_sessions("claude")
-             if cwd and os.path.realpath(cwd) == os.path.realpath(folder)]
-    return found[0][0] if len(found) == 1 else None
+    """The one session running in this folder as (runtime, session_id), or None if there are none or several.
+    Checks Claude first so an interactive Codex or Antigravity session in a Claude agent's folder never hides it."""
+    target = os.path.realpath(folder)
+    claude = list(dict.fromkeys(sid for _, sid, cwd in transcripts.live_sessions("claude")
+                                if cwd and os.path.realpath(cwd) == target))
+    if claude:
+        return ("claude", claude[0]) if len(claude) == 1 else None
+    found = {}
+    for runtime in ("codex", "agy"):
+        for _, sid, cwd in transcripts.live_sessions(runtime):
+            if cwd and os.path.realpath(cwd) == target and sid not in found:
+                found[sid] = runtime
+    if len(found) != 1:
+        return None
+    sid, runtime = next(iter(found.items()))
+    return runtime, sid
 
 
 def accept_trust(h, pane):
@@ -93,9 +107,10 @@ def start_session(item, notice, sleep=time.sleep, clock=time.monotonic):
 def deliver(item, notice):
     if item.get("reach"):
         return tell_session(item, notice)
-    sid = running_session(item["folder"])
-    if sid:
-        records.update_inbound(item["ref"], reach={"agent": item.get("agent_id"), "runtime": "claude", "session_id": sid,
+    found = running_session(item["folder"])
+    if found:
+        runtime, sid = found
+        records.update_inbound(item["ref"], reach={"agent": item.get("agent_id"), "runtime": runtime, "session_id": sid,
                                                    "cwd": item["folder"]})
         item = {**item, "reach": records.load_inbound(item["ref"])["reach"]}
         return tell_session(item, notice)
