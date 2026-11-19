@@ -84,10 +84,14 @@ def test_a_non_send_is_left_alone_and_records_nothing(world):
     assert wait_for_record(world) is None
 
 
-def test_a_send_keeps_stdout_and_exit_code_and_saves_a_record(world):
-    r = run(world, "gws-chief", "gmail", "+send", "--to", "owner@example.com")
+@pytest.mark.parametrize("args", [
+    ("+send", "--to", "owner@example.com"),
+    ("+reply-all", "--message-id", "prior", "--remove", "chief@example.com"),
+])
+def test_a_send_keeps_stdout_and_exit_code_and_saves_a_record(world, args):
+    r = run(world, "gws-chief", "gmail", *args)
     assert json.loads(r.stdout)["id"] == "m1" and r.returncode == 0
-    assert "--account chief --kind +send" in wait_for_record(world)
+    assert f"--account chief --kind {args[0]}" in wait_for_record(world)
 
 
 def test_a_failed_send_keeps_its_exit_code_and_records_nothing(world):

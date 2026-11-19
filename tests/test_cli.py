@@ -1,6 +1,10 @@
+from datetime import timedelta
+from types import SimpleNamespace
+
 import pytest
 import samples as s
-from agent_email import cli
+from agent_email import cli, records
+from test_listener import FakeAccount
 
 
 def test_an_answer_goes_to_everyone_on_his_email_but_the_agent():
@@ -15,6 +19,104 @@ def test_an_answer_goes_to_everyone_on_his_email_but_the_agent():
 def test_a_reply_to_the_agent_alone_is_answered_to_him_alone():
     item = {"reply_to": "owner@example.org", "mailbox": "agent@example.com"}
     assert cli.recipients(item, s.DEFAULT_SENDER) == (["owner@example.org"], [])
+
+
+@pytest.fixture
+def reply_command(home, monkeypatch):
+    mailbox = FakeAccount()
+    calls = []
+
+    def account(name, settings):
+        assert name == "chief"
+        return mailbox
+
+    def run(args, **kwargs):
+        calls.append((args, kwargs))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cli, "Account", account)
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Growth lead")
+    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "reply", "EM-m1", "--body", "**Update**", "-a", "report.pdf"])
+    return mailbox, calls
+
+
+def test_a_reply_to_sent_mail_lets_gmail_keep_the_recipients(reply_command):
+    mailbox, calls = reply_command
+    original = {"gmail_id": "m1", "thread_id": "t1", "account": "chief", "reach": {"session_id": "old"}}
+    records.write(records.sent_path("chief", "m1"), original)
+    inbound = {"ref": "EM-r1", "account": "chief", "thread_id": "t1", "answered_at": None}
+    records.save_inbound(inbound)
+    mailbox.put("m1", s.h(From="Original Sender <growth+news@example.com>", To="Owner <owner@example.org>",
+                          Cc="pat@example.net, growth+news@example.com"))
+
+    with pytest.raises(SystemExit) as result:
+        cli.main()
+
+    assert result.value.code == 0
+    assert calls == [([cli.gws("chief"), "gmail", "+reply-all", "--message-id", "m1", "--remove", "growth+news@example.com",
+                       "--body", cli.compose.email("**Update**", signer="Growth lead"), "--html",
+                       "--from", "Growth lead <growth+news@example.com>", "-a", "report.pdf"],
+                      {"stdout": cli.subprocess.DEVNULL})]
+    assert records.load_inbound("EM-r1") == inbound
+    assert list(records.all_sent()) == [original]
+
+
+def test_a_reply_to_inbound_mail_keeps_its_recipients_and_marks_it_answered(reply_command, monkeypatch):
+    mailbox, calls = reply_command
+    records.save_inbound({"ref": "EM-m1", "gmail_id": "m1", "account": "chief", "mailbox": "chief@example.com",
+                          "reply_to": "owner@example.org", "answered_at": None})
+    monkeypatch.setattr(records, "all_sent", lambda: pytest.fail("searched sent records for an inbound reference"))
+    mailbox.put("m1", s.h(Delivered_To="chief+growth@example.com", From="owner@example.org",
+                          To="chief+growth@example.com, sam@example.net", Cc="pat@example.net"))
+
+    with pytest.raises(SystemExit) as result:
+        cli.main()
+
+    assert result.value.code == 0
+    assert calls == [([cli.gws("chief"), "gmail", "+reply", "--message-id", "m1", "--to", "owner@example.org,sam@example.net",
+                       "--body", cli.compose.email("**Update**", signer="Growth lead"), "--html",
+                       "--from", "Growth lead <chief@example.com>", "--cc", "pat@example.net", "-a", "report.pdf"],
+                      {"stdout": cli.subprocess.DEVNULL})]
+    assert records.load_inbound("EM-m1")["answered_at"] is not None
+
+
+def test_sent_shows_up_to_twenty_of_this_agents_emails_newest_first(home, monkeypatch, capsys):
+    monkeypatch.setenv("AGENT_ID", "growth-lead")
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Growth lead")
+    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "sent"])
+    first = records.parse("2026-11-18T10:00:00+02:00")
+    for n in range(22):
+        account = "chief" if n % 2 else "growth-lead"
+        records.write(records.sent_path(account, f"m{n}"), {
+            "gmail_id": f"m{n}", "account": account, "sent_at": records.iso(first + timedelta(minutes=n)),
+            "subject": f"Status\n {n}",
+            "reach": {"agent_id": "growth-lead", "agent": "Previous name", "session_id": f"s{n}"}})
+    records.write(records.sent_path("chief", "other"), {
+        "gmail_id": "other", "account": "chief", "sent_at": records.iso(first + timedelta(days=1)),
+        "subject": "Another agent's email", "reach": {"agent_id": "another-agent", "agent": "Growth lead"}})
+
+    cli.main()
+
+    assert capsys.readouterr().out.splitlines() == [
+        f"EM-m{n}  {(first + timedelta(minutes=n)).astimezone():%m-%d %H:%M}  Status {n}"
+        for n in range(21, 1, -1)]
+
+
+def test_sent_uses_the_agents_name_without_an_id(home, monkeypatch, capsys):
+    monkeypatch.delenv("AGENT_ID", raising=False)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Growth lead")
+    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "sent"])
+    when = records.parse("2026-11-18T10:00:00+02:00")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "this-session")
+    for gmail_id, reach in (("m1", {"agent": "Growth lead"}), ("m2", {"agent": "Another agent"}), ("m3", None),
+                            ("m4", {"agent": "scratch", "session_id": "this-session"})):
+        records.write(records.sent_path("chief", gmail_id), {
+            "gmail_id": gmail_id, "account": "chief", "sent_at": records.iso(when), "reach": reach})
+
+    cli.main()
+
+    assert sorted(capsys.readouterr().out.splitlines()) == [f"EM-m{n}  {when.astimezone():%m-%d %H:%M}  " for n in (1, 4)]
 
 
 def handed(home, monkeypatch, running_folder=None, machines=None):

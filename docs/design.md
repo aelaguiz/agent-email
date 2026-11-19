@@ -85,7 +85,9 @@ He sometimes writes to the shared mailbox, or to one agent, about another's work
 
 ## Answering
 
-`agent-email reply` answers in the thread and keeps everyone on the email it answers, as a reply-all does: the owner's address first, then that email's other To recipients in To and its Cc's in Cc, read from the email itself when the agent answers. The agent's own addresses come off: the mailbox it sends from, and the address his email reached it at, such as a plus address. So he decides who hears an answer by how he writes. A reply-all on a thread with several people gets an answer to all of them, and a reply to the agent alone gets an answer to him alone. `agent-email read` names whoever else is on his email, so the agent knows who it is writing for.
+When it answers a message from the owner, `agent-email reply` stays in the thread and keeps everyone on the email it answers, as a reply-all does: the owner's address first, then that email's other To recipients in To and its Cc's in Cc, read from the email itself when the agent answers. The agent's own addresses come off: the mailbox it sends from, and the address his email reached it at, such as a plus address. So he decides who hears an answer by how he writes. A reply-all on a thread with several people gets an answer to all of them, and a reply to the agent alone gets an answer to him alone. `agent-email read` names whoever else is on his email, so the agent knows who it is writing for.
+
+An agent can also reply to a sent ref from `agent-email sent`, which lists its 20 most recent sends from this machine across sessions. The reply uses the original mailbox, keeps the original To and Cc recipients except the address in the original From header, and is recorded as a send from the current session so the owner's answer comes back to that session.
 
 Another agent's mailbox on the thread gets the answer like anyone else, and nothing follows from it, because only mail from the owner reaches a session. Notes from the system go only to him.
 

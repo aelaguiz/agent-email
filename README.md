@@ -67,14 +67,17 @@ Agents learn it from the skill in [skills/agent-email](skills/agent-email/SKILL.
 ```bash
 agent-email whoami                                # which agent this is, its address and yours
 agent-email send --subject "The news, first" --label "Update · nothing needs you" --body-file email.md -a chart.png
+agent-email sent                                  # this agent's 20 most recent sends from this machine
 agent-email read EM-1a14d0ee                      # an email and anything else waiting for this session
-agent-email reply EM-1a14d0ee --body "Done."      # answer everyone on that email, in its thread
+agent-email reply EM-1a14d0ee --body "Done."      # reply to an email you received or sent, in its thread
 agent-email done EM-1a14d0ee                      # it needs no answer
 agent-email inbox                                 # what's waiting
 agent-email accounts --fleet                      # every account, its address, and whether it works on each machine
 agent-email doctor                                # this machine's setup
 agent-email repoint <old session> <new session>   # a launcher that starts an agent again in a fresh session (a pod restore) hands it the old one's replies
 ```
+
+Use a ref from `agent-email sent` to add a correction or update in the same thread for the original To and Cc recipients, with the sender's address removed.
 
 To give an agent an instruction, email its address. An agent with its own account has one. Any other agent can be reached through a shared mailbox with a plus address: `chief+cfo-specialist@example.com` goes to the agent named `cfo-specialist`.
 

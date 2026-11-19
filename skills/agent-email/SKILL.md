@@ -1,6 +1,6 @@
 ---
 name: agent-email
-description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him a report, deck, question, problem or result by email, and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
+description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him a report, deck, question, problem or result by email, and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, or adds a correction to an email you sent in its thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
 ---
 
 # Agent email
@@ -51,6 +51,19 @@ Write the body in light Markdown: paragraphs, `- ` bullets, `1.` numbered lists,
 The command works out your address and his from who you are, and puts your name on the sender line. Most agents send from a shared mailbox, because an agent's own Google login is a login, not an inbox; mail to your own address still reaches you, through that mailbox. `agent-email whoami` shows what it chose. Add `--to` only when your repository's rules send this one somewhere else, such as a team list.
 
 Send and answer only with `agent-email`. A `gws-<your login> gmail` command refuses, since that login has no mailbox, and mail sent from somewhere else, above all from one of his own accounts, takes his answer where no agent hears it.
+
+## Adding to an email you sent
+
+What you add to an email he already has (a number that turned out wrong, a thing you left out, a slide added to the deck it carried, a problem that got worse) goes in that email's thread. He meets it under the email it changes, so he knows what it is before he reads a word of it. Sent as a new email it is a stranger in his inbox: a subject about a fact he can't place, which he has to trace back before he can tell whether it matters. In one week of November, 25 corrections reached him that way, and he couldn't tell what they were (November 19: "if they have a correction to send, they fucking reply to the email they already sent").
+
+```bash
+agent-email sent                    # what you've sent from this machine, newest first, each with its ref
+agent-email reply EM-1a1f0c2e7d93b4a1 --label "Correction · nothing changes for you" --body-file correction.md
+```
+
+A reply to your own email goes to whoever it went to, in its thread, below anything he has written there since. The subject stays the original's, so the first line carries the news: what was wrong, what is right, and what it changes for him. Under a deploy note, "**It began at 3:03:49 am, not 3:02 am,** after the release's yes. Nothing else in the email changes." is the whole email. When the email carried a deck or a page, fix that too, and the reply says what changed in it. When he has already answered in that thread, answer his email instead, as you would anyway.
+
+A correction belongs to whoever sent what it corrects. When your email only repeated someone else's number, their reply in their thread is the one he needs, and yours would be the same news twice; send one only when your own conclusion changes.
 
 ## When an [Email] message arrives
 

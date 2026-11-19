@@ -6,6 +6,8 @@
 
 `tests/test_gws_account.py` runs the real script with a fake `gws` under `/usr/bin/python3`, because on macOS that's the older Python it has to work on.
 
+The reply tests check the Gmail command for both received and sent refs, including removal of the original From address when an agent replies to its own email. The `sent` tests check that an agent sees its own sends across sessions, newest first.
+
 ## Live scenarios
 
 Unit tests can't prove the live path. A change to delivery, routing, the listener or the sender check is seen working here before it's done.

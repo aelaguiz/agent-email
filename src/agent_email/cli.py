@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from email.utils import getaddresses
 from pathlib import Path
 
 from approvals import transcripts
@@ -73,7 +74,9 @@ def recipients(item, headers):
 
 
 def cmd_reply(a):
-    item = inbound_or_die(a.ref)
+    item = records.load_inbound(a.ref)
+    if not item:
+        return reply_to_sent(a)
     s = config.settings()
     address = item["mailbox"]
     to, cc = recipients(item, Account(item["account"], s).metadata(item["gmail_id"])["payload"]["headers"])
@@ -87,6 +90,28 @@ def cmd_reply(a):
     if code == 0:
         records.update_inbound(a.ref, answered_at=records.iso())
         print(f"Sent to {', '.join(to + cc)} in the same thread.")
+    sys.exit(code)
+
+
+def reply_to_sent(a):
+    item = next((i for i in records.all_sent() if records.ref_for(i["gmail_id"]) == a.ref), None)
+    if not item:
+        sys.exit(f"No email {a.ref} on this machine.")
+    account, gmail_id = item["account"], item["gmail_id"]
+    headers = Account(account, config.settings()).metadata(gmail_id)["payload"]["headers"]
+    address = sender.from_address(headers)
+    if not address:
+        sys.exit(f"Couldn't read the From address for {a.ref}.")
+    args = [gws(account), "gmail", "+reply-all", "--message-id", gmail_id, "--remove", address,
+            "--body", formatted(a), "--html"] + sender_flag(address)
+    for f in a.attach or []:
+        args += ["-a", f]
+    code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
+    if code == 0:
+        fields = [sender.value(headers, h) or "" for h in ("reply-to", "to", "cc")]
+        addresses = [r.lower() for _, r in getaddresses(fields) if "@" in r]
+        recipients = dict.fromkeys(r for r in addresses if r != address)
+        print(f"Sent to {', '.join(recipients)} in the same thread.")
     sys.exit(code)
 
 
@@ -267,6 +292,19 @@ def cmd_inbox(a):
         print("Nothing waiting for this session.")
 
 
+def cmd_sent(a):
+    me = identity.session()
+    key = "agent_id" if me.get("agent_id") else "agent"
+
+    def mine(reach):
+        # A session started without an agent name is named after its folder, which can change; its own sends are still its own.
+        return reach.get(key) == me[key] or (me["session_id"] and reach.get("session_id") == me["session_id"])
+    items = [i for i in records.all_sent() if mine(i.get("reach") or {})]
+    for item in sorted(items, key=lambda i: records.parse(i["sent_at"]), reverse=True)[:20]:
+        when = records.parse(item["sent_at"]).astimezone().strftime("%m-%d %H:%M")
+        print(f"{records.ref_for(item['gmail_id'])}  {when}  {compose.subject(item.get('subject') or '')}")
+
+
 def cmd_record(a):
     """Called by gws-account after a send. Detached, so it can take its time."""
     result = json.loads(a.result)
@@ -409,8 +447,8 @@ def main():
     q.add_argument("--cc", action="append")
     body(q)
     q.set_defaults(fn=cmd_send)
-    q = sub.add_parser("reply", help="answer an email in its thread")
-    q.add_argument("ref")
+    q = sub.add_parser("reply", help="reply in the thread of an email you received or sent")
+    q.add_argument("ref", help="the email's reference from inbox or sent")
     body(q)
     q.set_defaults(fn=cmd_reply)
     q = sub.add_parser("done", help="an email from the owner that needs no answer")
@@ -421,6 +459,7 @@ def main():
     q.add_argument("--full", action="store_true", help="include the rest of the conversation")
     q.set_defaults(fn=cmd_read)
     sub.add_parser("inbox", help="what's waiting for this session").set_defaults(fn=cmd_inbox)
+    sub.add_parser("sent", help="the last 20 emails this agent sent from this machine").set_defaults(fn=cmd_sent)
     q = sub.add_parser("handoff", help="give an email that reached you to the agent it's for")
     q.add_argument("ref")
     q.add_argument("agent", help="the agent's name, as in .agent-identities.json")
