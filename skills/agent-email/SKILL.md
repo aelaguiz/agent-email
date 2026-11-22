@@ -15,11 +15,11 @@ He meets your email first as one row of his inbox, on a phone: your name, the fi
 
 - **The subject is the news, and its first words carry it.** "3 table bugs got past QA; 2 are live, 1 fixed tonight", not "QA report 23: three table bugs got past QA's November 9 testing; one reached players and is fixed tonight", which a phone cuts after "past". A deck's subject is what the deck found ("Team deck ready: 51 things shipped since Monday"), not its title.
 - **It opens with the three lines in "Writing to Amir", a reply too unless it is a sentence or two** (what this is, where it stands, what you need), each on its own line with its label in bold, as the first lines of the body. Then the news in at most three sentences, then a line that says only "The rest" and whatever else you would have sent. Never who wrote it: your name is on the sender line.
-- **A label says what kind of email it is and whether it needs him** (`--label`): "Problem · 1 fixed tonight · 1 still open", "Needs you · 2 questions", "Update · 2 things wait on you", "For your information · no action", "Deck · ready to show", "Result · my call". When something waits on him, it is the first thing after the bottom line, numbered, with its deadline, and the label's count is everything that waits on him, with a card or without; it is never the last bullet of an update.
+- **A label says what kind of email it is and whether this email needs him** (`--label`): "Problem · 1 fixed tonight · 1 still open", "Needs you · 2 questions", "For your information · no action", "Deck · ready to show", "Result · my call". When the email asks something of him, the ask is the first thing after the bottom line, numbered, with its deadline, never the last bullet of an update. What else waits on him isn't this email's to tally; your repository says where his open asks are listed.
 - **One screen, and the rest behind a button.** A few short blocks under small headings (`## What players hit`), bullets that are whole sentences, numbers with what they compare to. The record, the full status, the grid go behind a link on its own line, which the tool draws as a button. A daily status that ran 5,400 words read better as the four things that needed him that day, two that moved, and one line on what was stuck, with the full status behind a button.
 - **A deck email says what the deck says:** its totals, its finding, its question. Which slides hold what is the deck's job, and the deck is a button.
 - **A problem says what users hit, for how long, and whether it's fixed, before how it happened,** then what changes, in plain words, with the record behind a button. Not the old and new wording of your instructions: "The 2.1.67 fix never reached the five rooms: their tables come from a catalog that needs its own upload, and nobody uploaded it. Players there kept the overlap for about 22 hours; fixed since 5:18 am." When it was your own mistake, the first line owns it, with what it cost him.
-- **Short is not cryptic.** Each block is whole sentences in his words, never a string of issue numbers and labels from your work; a number from your tracker goes after the plain name, as a link. And when one line is the whole news, one line is the email: "Posted at 4:02 pm, and it's live."
+- **Short is not cryptic** ("Size" in "Writing to Amir"). When one line is the whole news, one line is the email: "Posted at 4:02 pm, and it's live."
 
 Like this, as the file you'd pass with `--body-file` (`--label "Problem · 1 fixed tonight · 1 still open"`):
 
@@ -54,7 +54,7 @@ Send and answer only with `agent-email`. A `gws-<your login> gmail` command refu
 
 ## Adding to an email you sent
 
-What you add to an email he already has (a number that turned out wrong, a thing you left out, a slide added to the deck it carried, a problem that got worse) goes in that email's thread. He meets it under the email it changes, so he knows what it is before he reads a word of it. Sent as a new email it is a stranger in his inbox: a subject about a fact he can't place, which he has to trace back before he can tell whether it matters. In one week of November, 25 corrections reached him that way, and he couldn't tell what they were (November 19: "if they have a correction to send, they fucking reply to the email they already sent").
+What you add to an email he already has (a number that turned out wrong, a thing you left out, a slide added to the deck it carried, a problem that got worse) goes in that email's thread, as "Qualifiers" in "Writing to Amir" says. In one week of November, 25 corrections reached him as new emails, strangers in his inbox he couldn't place. This is how:
 
 ```bash
 agent-email sent                    # what you've sent from this machine, newest first, each with its ref
@@ -62,8 +62,6 @@ agent-email reply EM-1a1f0c2e7d93b4a1 --label "Correction · nothing changes for
 ```
 
 A reply to your own email goes to whoever it went to, in its thread, below anything he has written there since. The subject stays the original's, so the first line carries the news: what was wrong, what is right, and what it changes for him. Under a deploy note, "**It began at 3:03:49 am, not 3:02 am,** after the release's yes. Nothing else in the email changes." is the whole email. When the email carried a deck or a page, fix that too, and the reply says what changed in it. When he has already answered in that thread, answer his email instead, as you would anyway.
-
-A correction belongs to whoever sent what it corrects. When your email only repeated someone else's number, their reply in their thread is the one he needs, and yours would be the same news twice; send one only when your own conclusion changes.
 
 ## When an [Email] message arrives
 
