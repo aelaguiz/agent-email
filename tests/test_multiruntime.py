@@ -28,7 +28,6 @@ def test_identity_session_captures_antigravity_env_and_model_without_secrets(mon
         "agy", SID_A, "gemini-4-neon", "xhigh", True
     )
     assert got["env"] == {
-        "BASECAMP_PROFILE": "demo-lead",
         "APPROVALS_FROM": "Demo Lead",
         "GIT_AUTHOR_NAME": "Demo Lead (agent)",
     }
@@ -104,7 +103,7 @@ def test_running_session_prefers_claude_and_routes_non_claude_when_alone(home, m
 def test_deliver_one_persists_moves_and_repoints_sent_even_on_retry(home, monkeypatch):
     folder = str(home / "brain/pods/growth/lead")
     old_reach = {"runtime": "codex", "session_id": SID_A, "cwd": folder, "herdr_session": "pods", "herdr_pane": "w1:p1",
-                 "env": {"BASECAMP_PROFILE": "growth-lead"}}
+                 "env": {"APPROVALS_FROM": "growth-lead"}}
     records.write(records.sent_path("chief", "g1"), {"gmail_id": "g1", "reach": dict(old_reach)})
     records.save_inbound({
         "ref": "EM-m1", "gmail_id": "m1", "thread_id": "t1", "kind": "reply", "account": "chief",
@@ -125,7 +124,7 @@ def test_deliver_one_persists_moves_and_repoints_sent_even_on_retry(home, monkey
     assert inb["reach"]["session_id"] == SID_B
     assert inb["reach"]["herdr_pane"] == "w1:p9"
     assert inb["reach"]["earlier_ids"] == [SID_A]
-    assert inb["reach"]["env"] == {"BASECAMP_PROFILE": "growth-lead"}
+    assert inb["reach"]["env"] == {"APPROVALS_FROM": "growth-lead"}
 
     sent = records.load_sent("chief", "g1")
     assert sent["reach"]["session_id"] == SID_B

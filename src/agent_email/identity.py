@@ -8,7 +8,7 @@ from pathlib import Path
 from . import config
 
 IDENTITY_ENV = (
-    "BASECAMP_PROFILE", "APPROVALS_FROM", "AGENT_ID",
+    "APPROVALS_FROM", "AGENT_ID",
     "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
 )
 
