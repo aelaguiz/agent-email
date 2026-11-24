@@ -5,7 +5,7 @@ description: "Email Amir from this session, in a shape that reads on his phone, 
 
 # Agent email
 
-Email is a conversation with Amir, not a one-way report. Anything you send him, he can answer from his phone, and his answer comes back to this session, even if it has closed by then. He is usually between other things, he can't see your terminal, and he takes silence to mean it's handled. So when he writes, treat it as him talking to you right now, and answer where he'll see it.
+Email is a conversation with Amir, not a one-way report. Anything you send him, he can answer from his phone, and his answer comes back to you: to this session, even if it has closed by then, or, for a pod member, to whatever session runs in its tab. He is usually between other things, he can't see your terminal, and he takes silence to mean it's handled. So when he writes, treat it as him talking to you right now, and answer where he'll see it.
 
 When and why to email him is your repository's call, and how to write to him in general is "Writing to Amir" in your global instructions. This skill adds what is particular to an email, and the mechanics.
 
