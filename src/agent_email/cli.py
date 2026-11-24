@@ -7,7 +7,7 @@ import sys
 from email.utils import getaddresses
 from pathlib import Path
 
-from approvals import transcripts
+from approvals import pods, transcripts
 
 from . import compose, config, identity, message, records, sender
 from .google import Account, GmailError
@@ -121,12 +121,19 @@ def cmd_done(a):
     print("Marked as needing no answer.")
 
 
-def same_session(item, sid):
-    return sid and (item.get("reach") or {}).get("session_id") == sid
+def mine(item, me):
+    """An email for this session: one its session sent or was told of, or for a pod member, one its member was sent or
+    told of in any session, since the session in its tab is the member (approvals' pods.py)."""
+    reach = item.get("reach") or {}
+    return bool(me.get("session_id")) and reach.get("session_id") == me["session_id"] or pods.same(reach.get("seat"), me.get("seat"))
 
 
-def waiting(sid=None):
-    return [i for i in records.all_inbound() if not i["read_at"] and (sid is None or same_session(i, sid))]
+def me_here():
+    return dict(identity.session(), seat=pods.here())
+
+
+def waiting(me=None):
+    return [i for i in records.all_inbound() if not i["read_at"] and (me is None or mine(i, me))]
 
 
 def save_attachments(account, item, payload):
@@ -172,15 +179,14 @@ def show(item, full):
 
 
 def cmd_read(a):
-    sid = identity.session()["session_id"]
     items = []
     if a.ref:
         first = inbound_or_die(a.ref)
         items = [first]
-        session = (first.get("reach") or {}).get("session_id")
-        items += [i for i in waiting(session) if session and i["ref"] != a.ref]
+        if first.get("reach"):
+            items += [i for i in waiting(first["reach"]) if i["ref"] != a.ref]
     else:
-        items = waiting(sid)
+        items = waiting(me_here())
     if not items:
         print("Nothing waiting for this session.")
     for n, item in enumerate(items):
@@ -222,8 +228,8 @@ def running(session_id):
 
 def cmd_repoint(a):
     """Replies to every email session OLD sent, and any it hasn't been told of yet, go to session NEW instead. For a
-    launcher that starts an agent again in a fresh session with none of the old one's history, as a pod restore does,
-    which the delivery code can't recognize as the same agent; it would resume the old session beside the new one."""
+    launcher that starts an agent again in a fresh session with none of the old one's history, which the delivery code
+    can't recognize as the same agent. A pod member needs none: its replies go to the session in its tab."""
     new = running(a.new)
     if not new:
         sys.exit(f"Session {a.new} isn't running on this machine, so nothing was changed.")
@@ -284,8 +290,7 @@ def cmd_handoff(a):
 
 
 def cmd_inbox(a):
-    sid = identity.session()["session_id"]
-    items = waiting(sid)
+    items = waiting(me_here())
     for i in items:
         print(f"{i['ref']}  {i['subject']}")
     if not items:
@@ -312,7 +317,7 @@ def cmd_record(a):
     if not gmail_id:
         return
     s = config.settings()
-    me = identity.session()
+    me = me_here()   # a pod member's reply goes to its tab (approvals' pods.py), whatever session it runs in then
     machine = config.machine()["name"]
     account = Account(a.account, s)
     record = {"gmail_id": gmail_id, "thread_id": result.get("threadId"), "account": a.account, "kind": a.kind,
@@ -468,7 +473,7 @@ def main():
     q.add_argument("agent")
     q.set_defaults(fn=cmd_running)
     sub.add_parser("adopt", help="take a handed-off email from standard input (used by handoff)").set_defaults(fn=cmd_adopt)
-    q = sub.add_parser("repoint", help="send replies meant for session OLD to session NEW, which has taken over its work (a pod restore runs this)")
+    q = sub.add_parser("repoint", help="send replies meant for session OLD to session NEW, which has taken over its work; a pod member needs none, its tab decides")
     q.add_argument("old")
     q.add_argument("new")
     q.set_defaults(fn=cmd_repoint)

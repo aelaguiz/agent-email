@@ -183,3 +183,14 @@ def test_repoint_sends_replies_for_a_saved_session_to_the_restored_one(home, mon
     assert "1 sent emails and 1 waiting" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         cli.cmd_repoint(type("A", (), {"old": "new", "new": "old"}))      # "old" isn't running here
+
+
+def test_the_member_in_its_tab_reads_what_its_earlier_session_was_told_of_and_a_chat_in_its_folder_does_not(home, monkeypatch, capsys):
+    from agent_email import records
+    seat = {"pod_command": "/b/pod", "herdr_session": "pods", "pod": "growth", "copy": "lead"}
+    records.save_inbound({"ref": "EM-r1", "subject": "Status", "reach": {"session_id": "old", "seat": seat},
+                          "notified_at": records.iso(), "read_at": None})
+    for sid, now, sees in (("chat", None, False), ("copy-2", dict(seat, copy="lead-2"), False), ("new", dict(seat), True)):
+        monkeypatch.setattr(cli, "me_here", lambda sid=sid, now=now: {"session_id": sid, "seat": now})
+        cli.cmd_inbox(None)
+        assert ("EM-r1" in capsys.readouterr().out) == sees

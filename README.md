@@ -1,6 +1,6 @@
 # agent-email
 
-Talk to your AI coding agents by email. Reply to any email an agent sent you and the session that sent it is told to read your reply, on whichever machine it runs, whether that session is open or closed. Email an agent's address and that agent picks it up. The agent answers in the same Gmail thread, to everyone your email went to, so you can hold a conversation from your phone.
+Talk to your AI coding agents by email. Reply to any email an agent sent you and the session that sent it is told to read your reply, on whichever machine it runs, whether that session is open or closed. A pod member is told in its tab, in whatever session runs there now, and is never started anywhere else: with nothing running in its tab your reply waits for it. Email an agent's address and that agent picks it up. The agent answers in the same Gmail thread, to everyone your email went to, so you can hold a conversation from your phone.
 
 ```
 agent ── gws-chief gmail +send ──▶ the one Google command ──▶ Gmail ──▶ you
@@ -74,7 +74,7 @@ agent-email done EM-1a14d0ee                      # it needs no answer
 agent-email inbox                                 # what's waiting
 agent-email accounts --fleet                      # every account, its address, and whether it works on each machine
 agent-email doctor                                # this machine's setup
-agent-email repoint <old session> <new session>   # a launcher that starts an agent again in a fresh session (a pod restore) hands it the old one's replies
+agent-email repoint <old session> <new session>   # hands a fresh session the old one's replies; a pod member needs none, its tab decides
 ```
 
 Use a ref from `agent-email sent` to add a correction or update in the same thread for the original To and Cc recipients, with the sender's address removed.

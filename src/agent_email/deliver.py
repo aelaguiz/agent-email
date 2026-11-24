@@ -1,11 +1,12 @@
 """Telling a session it has email. Finding, resuming and typing into a session is approvals' code, which has already
-been through real use. This adds what approvals never needs: starting a new session for an agent."""
+been through real use: a pod member is told in its tab, whatever session runs there, and never resumed or started
+anywhere else. This adds what approvals never needs: starting a new session for an agent that isn't a pod member."""
 import os
 import shlex
 import time
 
 import approvals.config
-from approvals import router, transcripts
+from approvals import pods, router, transcripts
 
 from . import config, records
 
@@ -107,6 +108,23 @@ def start_session(item, notice, sleep=time.sleep, clock=time.monotonic):
 def deliver(item, notice):
     if item.get("reach"):
         return tell_session(item, notice)
+    try:
+        copies = pods.in_folder(item["folder"])
+    except pods.Unreadable as e:
+        return router.Result("retry", f"couldn't read who runs in its tab: {e}")
+    if copies is not None:
+        # A pod member's new email goes to the member in its tab, its first copy if it has several, and waits while
+        # nothing runs there: a session started anywhere else would be a second copy of it.
+        if not copies:
+            return router.Result("waiting", "nothing is running in its tab")
+        seat, runtime, sid, pid = copies[0]
+        hs, pane = router.find_pane_for_pid(pid) or (None, None)
+        if not pane:
+            return router.Result("retry", "couldn't find the pane its tab holds")
+        records.update_inbound(item["ref"], reach={"agent": item.get("agent_id"), "runtime": runtime, "session_id": sid,
+                                                   "cwd": item["folder"], "herdr_session": hs, "herdr_pane": pane,
+                                                   "seat": dict(seat, herdr_session=hs)})
+        return tell_session({**item, "reach": records.load_inbound(item["ref"])["reach"]}, notice)
     found = running_session(item["folder"])
     if found:
         runtime, sid = found

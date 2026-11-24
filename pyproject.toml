@@ -3,7 +3,7 @@ name = "agent-email"
 version = "0.1.0"
 description = "Email your coding agents: a reply tells the session that sent the email to read it, on any machine."
 requires-python = ">=3.12"
-dependencies = ["approvals @ git+https://github.com/aelaguiz/agent-approvals@60caadb2a9d1cfa2c5121c65c2eb27d634e924e0"]
+dependencies = ["approvals @ git+https://github.com/aelaguiz/agent-approvals@96c8099af1e288ba2a97e87b8b69db66aae9de4b"]
 
 [project.scripts]
 agent-email = "agent_email.cli:main"
