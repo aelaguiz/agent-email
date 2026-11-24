@@ -54,14 +54,14 @@ Send and answer only with `agent-email`. A `gws-<your login> gmail` command refu
 
 ## Adding to an email you sent
 
-What you add to an email he already has (a number that turned out wrong, a thing you left out, a slide added to the deck it carried, a problem that got worse) goes in that email's thread, as "Qualifiers" in "Writing to Amir" says. In one week of November, 25 corrections reached him as new emails, strangers in his inbox he couldn't place. This is how:
+Most of what you learn after sending is never emailed: it goes into the work (the deck, the sheet, the record), as "Qualifiers" in "Writing to Amir" says, because a correction that changes nothing he would do is one more email he has to set against the first. From November 17 to 24, 192 of the 756 agent emails he got corrected or added to an earlier one, and more than half said themselves that nothing changed for him (his words on November 24: "stop spamming me with their stream of consciousness"). A start time a minute off, a size that moved inside its range, a slide renumbered: fix the work and send nothing. What goes is what changes what he would do, decide or tell someone (a price half again as high before his yes, an ask that named the wrong ad, a problem that got worse), once, when it has settled and been checked, in that email's thread, where he can place it:
 
 ```bash
 agent-email sent                    # what you've sent from this machine, newest first, each with its ref
-agent-email reply EM-1a1f0c2e7d93b4a1 --label "Correction · nothing changes for you" --body-file correction.md
+agent-email reply EM-1a1f0c2e7d93b4a1 --label "Correction · the run costs more" --body-file correction.md
 ```
 
-A reply to your own email goes to whoever it went to, in its thread, below anything he has written there since. The subject stays the original's, so the first line carries the news: what was wrong, what is right, and what it changes for him. Under a deploy note, "**It began at 3:03:49 am, not 3:02 am,** after the release's yes. Nothing else in the email changes." is the whole email. When the email carried a deck or a page, fix that too, and the reply says what changed in it. When he has already answered in that thread, answer his email instead, as you would anyway.
+A reply to your own email goes to whoever it went to, in its thread, below anything he has written there since. The subject stays the original's, so the first line carries the news: what was wrong, what is right, and what it changes for him. "**The run costs $455 to $510, not $330 to $395,** recounted by the AI pod's reviewer at what the machines bill. Your yes would now approve that." is the whole email. When the email carried a deck or a page, fix that too, and the reply says what changed in it. When he has already answered in that thread, answer his email instead, as you would anyway.
 
 ## When an [Email] message arrives
 
