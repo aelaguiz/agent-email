@@ -1,6 +1,6 @@
 ---
 name: agent-email
-description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him a report, deck, question, problem or result by email, and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, or adds a correction to an email you sent in its thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
+description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him a report, deck, question, problem or result by email, and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, or adds what changes his decision to an email you sent, in its thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
 ---
 
 # Agent email
