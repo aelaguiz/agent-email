@@ -16,7 +16,7 @@ FROM_LABEL = "agent-email/from-"
 READ_LABEL = "agent-email/read"
 FOR_GUIDANCE = """Not sent yet. An email to Amir says what he will do with it, in `--for`. Add it and run this again.
 
-  --for asked     He asked for this by email, or you are answering in his email thread what he asked there. Send it: his reply there is his answer, and no card goes beside it. If it also carries a yes he did not ask to give (a test, a spend, a step of yours), that yes is `--for yes` below, on its own.
+  --for asked     He asked for this by email, you are answering in his email thread what he asked there, or you are putting right, in its thread, something you sent that he would act on. Send it: his reply there is his answer, and no card goes beside it. If it also carries a yes he did not ask to give (a test, a spend, a step of yours), that yes is `--for yes` below, on its own.
   --for read      A deck for something he would reshape (a feature, a price, a big swing), and nothing in it needs his yes today. Send it, asking for his read. First set the thing waiting on him in the record, saying the deck is with him by email since when.
   --for problem   Something users or money hit: what happened, for how long, whether it is fixed. Send it.
   --for yes       It asks him to approve, decide or "reply yes": a test, a spend, a post, a step, a number he must OK, a ready test inside a deck. This is not an email. Post it as an approval card on the thing it decides, with the deck as the card's link (`$approvals`); what is private to a person and can't go on a card goes to the session he is talking in. Never write "the card follows your read" for something that is ready now.

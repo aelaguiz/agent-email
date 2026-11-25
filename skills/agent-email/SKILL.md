@@ -42,13 +42,13 @@ QA now tests animations while the player isn't acting, and every new way into a 
 ## Sending
 
 ```bash
-agent-email send --for problem --subject "<the news, first words first>" --label "<kind · whether it needs him>" --body-file email.md
+agent-email send --for <asked|read|problem> --subject "<the news, first words first>" --label "<what kind of email it is>" --body-file email.md
 agent-email send --for asked --subject "..." --body "Posted at 4:02 pm, and it's live." -a report.pdf
 ```
 
 Write the body in light Markdown: paragraphs, `- ` bullets, `1.` numbered lists, `**bold**`, `[text](url)`, `## Small heading`, and a link alone on its line for a button. `--html` sends your own HTML instead. Either way the command sends a formatted email in the same shape, with your label on top and your name at the bottom, and never plain text, which the mail servers re-wrap at about 69 characters so that it breaks into ragged lines on his phone. Don't sign the email yourself.
 
-`--for` says what he will do with the email: `asked` (he asked for it by email, or you are answering in his thread), `read` (a deck for something he would reshape; set its thing waiting on him in the record first) or `problem`. Run the command without it to see the choices, the two that aren't emails included.
+`--for` says what he will do with the email: `asked` (he asked for it by email, you are answering in his thread, or you are putting right something you sent that he would act on), `read` (a deck for something he would reshape; set its thing waiting on him in the record first) or `problem`. Run the command without it to see the choices, the two that aren't emails included.
 
 The command works out your address and his from who you are, and puts your name on the sender line. Most agents send from a shared mailbox, because an agent's own Google login is a login, not an inbox; mail to your own address still reaches you, through that mailbox. `agent-email whoami` shows what it chose. Add `--to` only when your repository's rules send this one somewhere else, such as a team list.
 
