@@ -14,6 +14,13 @@ from .google import Account, GmailError
 
 FROM_LABEL = "agent-email/from-"
 READ_LABEL = "agent-email/read"
+FOR_GUIDANCE = """Not sent yet. An email to Amir says what he will do with it, in `--for`. Add it and run this again.
+
+  --for asked     He asked for this by email, or you are answering in his email thread what he asked there. Send it: his reply there is his answer, and no card goes beside it. If it also carries a yes he did not ask to give (a test, a spend, a step of yours), that yes is `--for yes` below, on its own.
+  --for read      A deck for something he would reshape (a feature, a price, a big swing), and nothing in it needs his yes today. Send it, asking for his read. First set the thing waiting on him in the record, saying the deck is with him by email since when.
+  --for problem   Something users or money hit: what happened, for how long, whether it is fixed. Send it.
+  --for yes       It asks him to approve, decide or "reply yes": a test, a spend, a post, a step, a number he must OK, a ready test inside a deck. This is not an email. Post it as an approval card on the thing it decides, with the deck as the card's link (`$approvals`); what is private to a person and can't go on a card goes to the session he is talking in. Never write "the card follows your read" for something that is ready now.
+  --for nothing   Nobody asked for it and it needs nothing from him: an update, a finding, an analysis, a correction that changes nothing he would do. This is not an email. Put it on its thing in the record."""
 
 
 def gws(account):
@@ -38,6 +45,15 @@ def sender_flag(address):
     return ["--from", f"{name} <{address}>"] if name else []
 
 
+def check_for(a):
+    if a.purpose is None:
+        print(FOR_GUIDANCE, file=sys.stderr)
+        sys.exit(2)
+    if a.purpose in ("yes", "nothing"):
+        print(next(line for line in FOR_GUIDANCE.splitlines() if line.startswith(f"  --for {a.purpose} ")), file=sys.stderr)
+        sys.exit(2)
+
+
 def cmd_whoami(a):
     s = config.settings()
     me = identity.session()
@@ -46,6 +62,7 @@ def cmd_whoami(a):
 
 
 def cmd_send(a):
+    check_for(a)
     s = config.settings()
     me = identity.session()
     account, address, to = identity.mailbox_for(me["agent_id"], me["cwd"], s)
@@ -74,6 +91,7 @@ def recipients(item, headers):
 
 
 def cmd_reply(a):
+    check_for(a)
     item = records.load_inbound(a.ref)
     if not item:
         return reply_to_sent(a)
@@ -173,7 +191,7 @@ def show(item, full):
                 print(f"\n--- {sender.value(h, 'from')}, {sender.value(h, 'date')}\n{message.split_reply(message.body_text(m['payload']))[0]}")
     else:
         print(f"Earlier messages in this conversation: agent-email read {item['ref']} --full")
-    print(f"Answer by email: agent-email reply {item['ref']} --body-file <file>")
+    print(f"Answer by email: agent-email reply {item['ref']} --for asked --body-file <file>")
     records.update_inbound(item["ref"], read_at=records.iso())
     account.add_label(item["gmail_id"], READ_LABEL)
 
@@ -443,7 +461,9 @@ def main():
         g.add_argument("--body")
         g.add_argument("--body-file")
         q.add_argument("--html", action="store_true", help="the body is HTML; otherwise it is light Markdown")
-        q.add_argument("--label", help='what kind of email it is and whether it needs him, e.g. "Problem · fixed tonight"')
+        q.add_argument("--label", help='what kind of email it is, e.g. "Problem · fixed tonight"')
+        q.add_argument("--for", dest="purpose", choices=("asked", "read", "problem", "yes", "nothing"),
+                       help="what he will do with the email")
         q.add_argument("-a", "--attach", action="append")
 
     q = sub.add_parser("send", help="email the owner from this agent's address")

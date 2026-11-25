@@ -45,7 +45,7 @@ def test_every_send_goes_as_html_with_a_one_line_subject(monkeypatch):
     monkeypatch.setattr(cli.subprocess, "run", lambda args, **k: sent.setdefault("args", args) and SimpleNamespace(returncode=0))
     monkeypatch.delenv("GIT_AUTHOR_NAME", raising=False)
     a = SimpleNamespace(subject="Team deck ready:\n\t51 things shipped", to=None, cc=None, attach=None,
-                        body="The deck is ready.", body_file=None, html=False, label="Deck · ready to show")
+                        body="The deck is ready.", body_file=None, html=False, label="Deck · ready to show", purpose="asked")
     try:
         cli.cmd_send(a)
     except SystemExit:

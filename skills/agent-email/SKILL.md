@@ -1,6 +1,6 @@
 ---
 name: agent-email
-description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him a report, deck, question, problem or result by email, and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, or adds what changes his decision to an email you sent, in its thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
+description: "Email Amir from this session, in a shape that reads on his phone, and hold a conversation with him by email. Use to send him something he asked for by email, a deck to read, an answer in his thread or a problem (never to ask his yes, which is an approval card), and whenever an [Email] message arrives in this session, which means he wrote to you and you need to read it with `agent-email read`. `agent-email send` picks your address and his; `agent-email reply` answers him in the same thread, or adds what changes his decision to an email you sent, in its thread, and his next reply comes back here, even after this session closes. Not for deciding whether to email him (your repo's instructions own that), email to anyone outside the company (an `$approvals` email card), player or customer email, or reading his mailbox (`gws-gmail`)."
 ---
 
 # Agent email
@@ -15,7 +15,7 @@ He meets your email first as one row of his inbox, on a phone: your name, the fi
 
 - **The subject is the news, and its first words carry it.** "3 table bugs got past QA; 2 are live, 1 fixed tonight", not "QA report 23: three table bugs got past QA's November 9 testing; one reached players and is fixed tonight", which a phone cuts after "past". A deck's subject is what the deck found ("Team deck ready: 51 things shipped since Monday"), not its title.
 - **The first line is the bottom line.** It is also the preview under the subject, so it says what you would if you could say only one thing: "Three bugs got past QA's testing. Two reached players: one is fixed in tonight's release, and one is still open." Never who wrote it: your name is on the sender line, and the tool signs the email for you. An opening like "From the core dev pod's lead (agent): QA report 23" spends the one line he reads on what he already knows. Bold that first line.
-- **A label says what kind of email it is and whether this email needs him** (`--label`): "Problem · 1 fixed tonight · 1 still open", "Needs you · 2 questions", "For your information · no action", "Deck · ready to show", "Result · my call". When the email asks something of him, the ask is the first thing after the bottom line, numbered, with its deadline, never the last bullet of an update. What else waits on him isn't this email's to tally; your repository says where his open asks are listed.
+- **A label says what kind of email it is** (`--label`): "Problem · 1 fixed tonight · 1 still open", "Deck · for your read", "The plan you asked for", "Result · my call". An email is something he asked for by email, an answer in his thread, a deck for something he would reshape, or a problem. A yes you are bringing, one inside a deck he asked for included, is an approval card with the deck as its link, never an ask in an email; what nobody asked for and needs nothing from him goes on its thing in the record. The command asks which it is (`--for`) before it sends.
 - **One screen, and the rest behind a button.** A few short blocks under small headings (`## What players hit`), bullets that are whole sentences, numbers with what they compare to. The record, the full status, the grid go behind a link on its own line, which the tool draws as a button. A daily status that ran 5,400 words read better as the four things that needed him that day, two that moved, and one line on what was stuck, with the full status behind a button.
 - **A deck email says what the deck says:** its totals, its finding, its question. Which slides hold what is the deck's job, and the deck is a button.
 - **A problem says what users hit, for how long, and whether it's fixed, before how it happened,** then what changes, in plain words, with the record behind a button. Not the old and new wording of your instructions: "The 2.1.67 fix never reached the five rooms: their tables come from a catalog that needs its own upload, and nobody uploaded it. Players there kept the overlap for about 22 hours; fixed since 5:18 am." When it was your own mistake, the first line owns it, with what it cost him.
@@ -42,11 +42,13 @@ QA now tests animations while the player isn't acting, and every new way into a 
 ## Sending
 
 ```bash
-agent-email send --subject "<the news, first words first>" --label "<kind · whether it needs him>" --body-file email.md
-agent-email send --subject "..." --body "Posted at 4:02 pm, and it's live." -a report.pdf
+agent-email send --for problem --subject "<the news, first words first>" --label "<kind · whether it needs him>" --body-file email.md
+agent-email send --for asked --subject "..." --body "Posted at 4:02 pm, and it's live." -a report.pdf
 ```
 
 Write the body in light Markdown: paragraphs, `- ` bullets, `1.` numbered lists, `**bold**`, `[text](url)`, `## Small heading`, and a link alone on its line for a button. `--html` sends your own HTML instead. Either way the command sends a formatted email in the same shape, with your label on top and your name at the bottom, and never plain text, which the mail servers re-wrap at about 69 characters so that it breaks into ragged lines on his phone. Don't sign the email yourself.
+
+`--for` says what he will do with the email: `asked` (he asked for it by email, or you are answering in his thread), `read` (a deck for something he would reshape; set its thing waiting on him in the record first) or `problem`. Run the command without it to see the choices, the two that aren't emails included.
 
 The command works out your address and his from who you are, and puts your name on the sender line. Most agents send from a shared mailbox, because an agent's own Google login is a login, not an inbox; mail to your own address still reaches you, through that mailbox. `agent-email whoami` shows what it chose. Add `--to` only when your repository's rules send this one somewhere else, such as a team list.
 
@@ -58,7 +60,7 @@ Most of what you learn after sending is never emailed: it goes into the work (th
 
 ```bash
 agent-email sent                    # what you've sent from this machine, newest first, each with its ref
-agent-email reply EM-1a1f0c2e7d93b4a1 --label "Correction · the run costs more" --body-file correction.md
+agent-email reply EM-1a1f0c2e7d93b4a1 --for asked --label "Correction · the run costs more" --body-file correction.md
 ```
 
 A reply to your own email goes to whoever it went to, in its thread, below anything he has written there since. The subject stays the original's, so the first line carries the news: what was wrong, what is right, and what it changes for him. "**The run costs $455 to $510, not $330 to $395,** recounted by the AI pod's reviewer at what the machines bill. Your yes would now approve that." is the whole email. When the email carried a deck or a page, fix that too, and the reply says what changed in it. When he has already answered in that thread, answer his email instead, as you would anyway.
@@ -80,7 +82,7 @@ Run that command. It shows his email, anything else of his waiting for this sess
 **Answer by email, because that's where he is.** Whatever you say in the terminal, he never sees.
 
 ```bash
-agent-email reply EM-1a14d0ee --body-file answer.md
+agent-email reply EM-1a14d0ee --for asked --body-file answer.md
 ```
 
 That goes to everyone on the email you're answering, in the same thread, the way a reply-all does: him, and anyone else he wrote to or copied, less your own address. So he decides who hears your answer by how he writes, and when others are on it, `agent-email read` names them. Write it the way you'd write any email to him: the answer first, in the words he asked in, short, and plain to the others too, who can't see your session either. A quick answer needs no label; one that reports a problem or needs him gets one. Anything meant for him alone goes in a new email with `agent-email send`.

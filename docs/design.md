@@ -13,7 +13,9 @@ Each machine keeps its own records in `~/.agent-email/`. Gmail is the only thing
 
 ## Sending
 
-**The shape.** `agent-email send` and `reply` always send HTML, built by `compose.py` from the agent's light Markdown (or its own HTML): an optional label saying what kind of email it is and whether it needs the owner, the body, and a sign-off with the sender's name. Plain text never goes out, because Gmail re-wraps it at about 69 characters on the way, so on a phone every line breaks twice (seen November 11, 2026 on every plain-text agent email in the owner's inbox). Lines inside a paragraph or list item are joined, a link alone on its line becomes a button, and the subject is collapsed to one line.
+**The purpose.** `agent-email send` and `reply` require the agent to say what the owner will do with the email (`--for asked`, `read` or `problem`). Without `--for`, they print the choices and exit 2 without sending. `--for yes` and `--for nothing` likewise exit 2, explaining where the ask or update belongs instead. The choice is not recorded.
+
+**The shape.** `agent-email send` and `reply` always send HTML, built by `compose.py` from the agent's light Markdown (or its own HTML): an optional label saying what kind of email it is, the body, and a sign-off with the sender's name. Plain text never goes out, because Gmail re-wraps it at about 69 characters on the way, so on a phone every line breaks twice (seen November 11, 2026 on every plain-text agent email in the owner's inbox). Lines inside a paragraph or list item are joined, a link alone on its line becomes a button, and the subject is collapsed to one line.
 
 Agents already send through a `gws-*` command, so that's where the capture goes. They don't have to adopt anything.
 

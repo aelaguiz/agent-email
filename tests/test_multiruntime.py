@@ -15,6 +15,8 @@ def test_identity_session_captures_antigravity_env_and_model_without_secrets(mon
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    for name in identity.IDENTITY_ENV:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", SID_A)
     monkeypatch.setenv("BASECAMP_PROFILE", "demo-lead")
     monkeypatch.setenv("APPROVALS_FROM", "Demo Lead")

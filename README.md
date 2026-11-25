@@ -66,10 +66,10 @@ Agents learn it from the skill in [skills/agent-email](skills/agent-email/SKILL.
 
 ```bash
 agent-email whoami                                # which agent this is, its address and yours
-agent-email send --subject "The news, first" --label "Update · nothing needs you" --body-file email.md -a chart.png
+agent-email send --for asked --subject "The report you asked for" --body-file email.md -a chart.png
 agent-email sent                                  # this agent's 20 most recent sends from this machine
 agent-email read EM-1a14d0ee                      # an email and anything else waiting for this session
-agent-email reply EM-1a14d0ee --body "Done."      # reply to an email you received or sent, in its thread
+agent-email reply EM-1a14d0ee --for asked --body "Done."      # reply to an email you received or sent, in its thread
 agent-email done EM-1a14d0ee                      # it needs no answer
 agent-email inbox                                 # what's waiting
 agent-email accounts --fleet                      # every account, its address, and whether it works on each machine
@@ -77,7 +77,9 @@ agent-email doctor                                # this machine's setup
 agent-email repoint <old session> <new session>   # hands a fresh session the old one's replies; a pod member needs none, its tab decides
 ```
 
-Use a ref from `agent-email sent` to add a correction or update in the same thread for the original To and Cc recipients, with the sender's address removed.
+`send` and `reply` require `--for asked`, `--for read` (a deck to read), or `--for problem`. Run the command without `--for` to see the choices; it sends nothing.
+
+Use a ref from `agent-email sent` to add a correction that changes the owner's decision in the same thread for the original To and Cc recipients, with the sender's address removed.
 
 To give an agent an instruction, email its address. An agent with its own account has one. Any other agent can be reached through a shared mailbox with a plus address: `chief+cfo-specialist@example.com` goes to the agent named `cfo-specialist`.
 

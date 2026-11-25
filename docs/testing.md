@@ -6,7 +6,7 @@
 
 `tests/test_gws_account.py` runs the real script with a fake `gws` under `/usr/bin/python3`, because on macOS that's the older Python it has to work on.
 
-The reply tests check the Gmail command for both received and sent refs, including removal of the original From address when an agent replies to its own email. The `sent` tests check that an agent sees its own sends across sessions, newest first.
+The send and reply tests check that a missing `--for`, `--for yes` or `--for nothing` exits 2 without calling Gmail, including sends to a team list. The send tests check the Gmail command for allowed purposes; the reply tests check it for both received and sent refs, including removal of the original From address when an agent replies to its own email. The `sent` tests check that an agent sees its own sends across sessions, newest first.
 
 ## Live scenarios
 

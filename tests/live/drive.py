@@ -280,7 +280,7 @@ def everyone():
     tag = tagged("everyone")
     also_to, also_cc = L["owner_side"], L["owner_personal"]
     s = Session()
-    s.tell(f'Run: agent-email send --subject "{tag}" --body "A thread with several people on it." '
+    s.tell(f'Run: agent-email send --for asked --subject "{tag}" --body "A thread with several people on it." '
            f'--to {L["owner_default"]},{also_to} --cc {also_cc} Then wait.')
     wait("sent", lambda: sent_with(tag), 120)
     gws("gws", "gmail", "+reply-all", "--message-id", owner_find(tag), "--to", also_to,
@@ -435,7 +435,7 @@ def fleet():
     route = config.settings()["machines"][name]
     tag = tagged(f"fleet {name}")
     tools = 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"'
-    brief = f"Run this exact command and nothing else: agent-email send --subject '{tag}' --body Testing"
+    brief = f"Run this exact command and nothing else: agent-email send --for asked --subject '{tag}' --body Testing"
     r = subprocess.run(["ssh", route, f'{tools}; cd "$HOME/workspace/agent-email/tests/live/sandbox" && aim claude run sonnet -- -p "{brief}"'],
                        capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
     log("remote session finished:", r.stdout[-120:].strip(), r.stderr[-120:].strip())

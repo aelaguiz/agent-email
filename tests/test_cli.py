@@ -21,6 +21,55 @@ def test_a_reply_to_the_agent_alone_is_answered_to_him_alone():
     assert cli.recipients(item, s.DEFAULT_SENDER) == (["owner@example.org"], [])
 
 
+@pytest.mark.parametrize("command", [
+    ["send", "--subject", "News"],
+    ["send", "--subject", "News", "--to", "team@example.com"],
+    ["reply", "EM-m1"],
+], ids=["send", "send-to-team", "reply"])
+@pytest.mark.parametrize("purpose", [None, "yes", "nothing"])
+def test_an_email_must_have_a_purpose_that_belongs_in_email(command, purpose, home, monkeypatch, capsys):
+    argv = ["agent-email", *command, "--body", "News"]
+    if purpose is not None:
+        argv += ["--for", purpose]
+    monkeypatch.setattr(cli.sys, "argv", argv)
+    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **kw: pytest.fail("ran a command before checking --for"))
+    monkeypatch.setattr(cli, "Account", lambda *a: pytest.fail("opened Gmail before checking --for"))
+
+    with pytest.raises(SystemExit) as result:
+        cli.main()
+
+    assert result.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    if purpose is None:
+        assert output.err == cli.FOR_GUIDANCE + "\n"
+    else:
+        assert output.err.startswith(f"  --for {purpose} ") and len(output.err.splitlines()) == 1
+
+
+@pytest.mark.parametrize("purpose", ["asked", "read", "problem"])
+def test_an_email_with_an_allowed_purpose_sends_as_before(purpose, home, monkeypatch):
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append((args, kwargs))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cli.identity, "session", lambda: {"agent_id": "growth-lead", "cwd": str(home / "brain")})
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Growth lead")
+    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "send", "--for", purpose, "--subject", "News",
+                                        "--body", "**Update**", "--cc", "pat@example.net", "-a", "report.pdf"])
+
+    with pytest.raises(SystemExit) as result:
+        cli.main()
+
+    assert result.value.code == 0
+    assert calls == [([cli.gws("chief"), "gmail", "+send", "--to", "owner@example.org", "--subject", "News",
+                       "--body", cli.compose.email("**Update**", signer="Growth lead"), "--html",
+                       "--from", "Growth lead <chief@example.com>", "--cc", "pat@example.net", "-a", "report.pdf"], {})]
+
+
 @pytest.fixture
 def reply_command(home, monkeypatch):
     mailbox = FakeAccount()
@@ -37,7 +86,7 @@ def reply_command(home, monkeypatch):
     monkeypatch.setattr(cli, "Account", account)
     monkeypatch.setattr(cli.subprocess, "run", run)
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Growth lead")
-    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "reply", "EM-m1", "--body", "**Update**", "-a", "report.pdf"])
+    monkeypatch.setattr(cli.sys, "argv", ["agent-email", "reply", "EM-m1", "--for", "asked", "--body", "**Update**", "-a", "report.pdf"])
     return mailbox, calls
 
 
